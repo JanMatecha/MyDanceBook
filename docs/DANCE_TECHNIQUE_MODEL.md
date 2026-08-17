@@ -46,14 +46,16 @@ Common Step fields include:
 
 TechnicalAction gives Step-bound action type, target, time, parameters, and source a stable structure. Common action types remain queryable vocabulary/fields rather than Note prose.
 
+Step and TechnicalAction can address the same topic at different resolution without becoming competing truths. A Step common field is the concise entered summary/result: overall `amountOfTurn` or transfer outcome. A TechnicalAction is the timed/internal process: when/how rotation develops or how transfer proceeds. Detailed actions may derive a candidate summary, but they never silently replace an entered Step value; a clear contradiction produces review feedback. See [ADR 0005](adr/0005-step-summary-vs-technical-action.md).
+
 Typed extension parameters are appropriate for rare or evolving details, but each has a small owner, namespace, value type/unit, and schema version. Repeated properties graduate to common fields through migration. Notes explain context; they are not a dumping ground for routine structured technique.
 
 ## Step, TechnicalAction, or MovementEvent?
 
 | Question | Model | Example category |
 | --- | --- | --- |
-| Is it the dancer's numbered foot action? | `Step` | moving/supporting foot, placement, footwork, amount of turn |
-| Is it technique tied directly to one concrete Step? | `TechnicalAction` | weight transfer action, supporting-foot rotation, foot pressure |
+| Is it the dancer's numbered foot action or concise overall result? | `Step` | moving/supporting foot, placement, footwork, overall amount of turn/transfer outcome |
+| Is it timed/internal process detail tied to one concrete Step? | `TechnicalAction` | transfer development, supporting-foot rotation over time, foot pressure |
 | Is it independent body movement, held state, or movement spanning Steps? | `MovementEvent` referencing `MovementVariant` | arm action, head action, torso action, Hip/Body Action sequence |
 
 A Step is never reduced to MovementEvent. A MovementEvent may overlap Steps from either dancer. TechnicalAction's required Step reference keeps Step-specific information discoverable.
@@ -134,13 +136,11 @@ CoupleCenter is a choreographic translation reference; CoupleRotation is indepen
 
 ## EntryState and ExitState
 
-Boundary snapshots make synchronization and routine connection review practical without duplicating the whole FigureVariant. Each component is optional and may include:
+Boundary snapshots make synchronization and routine connection review practical without duplicating the whole FigureVariant. Each component is optional.
 
-- Leader and Follower relation/orientation;
-- CouplePosition and Hold/Contact;
-- left/right FootState and weight distribution;
-- selected Alignment/body state;
-- timing phase/constraint.
+EntryState may include Follower relation/orientation, CouplePosition, Hold/Contact, left/right FootState and weight distribution, and selected Alignment/body state. Leader entry pose is FigureFrame origin/`+Y` by definition and is not independently stored. Entry timing constraint is displayed from `FigureVariant.entryTimingConstraint`, never copied into EntryState.
+
+ExitState may include Leader exit position/orientation for chaining, Follower exit relation, and the same concise semantic/foot/body categories.
 
 Detailed Steps, events, and trajectories may derive candidate boundary values. Manually entered snapshots remain canonical. Clear disagreement is `REQUIRES_REVIEW`; insufficient data is `CANNOT_YET_VERIFY`.
 
@@ -155,20 +155,20 @@ Assume a Figure in Waltz with a FigureVariant named “Fictional S variant.” I
 | Requested dimension | Fictional example | Structured location |
 | --- | --- | --- |
 | Independent Steps | Leader L1/L2 and Follower F1/F2/F3 | Five `Step` rows, separately ordered by subject |
-| Timing | L1 starts `0/1`, F1 starts `1/4`; fictional full-bar Pattern is clipped at final use | Common rational timeline plus `TimingPatternUse` |
+| Timing | In one explicitly selected fictional Scheme, L1 starts at `0/1` beats and F1 at `1/4` beat; a full-bar Pattern is clipped at final use | Scheme-owned common rational timeline plus `TimingPatternUse` |
 | Moving/supporting foot | L1 uses `RF` and supporting `LF` | Vocabulary-backed Step fields |
 | Footwork | L1 value `HT` | Structured Step footwork/contact value |
-| Weight transfer | L1 `FULL_BY_END` with separate left/right FootState | Step field, TechnicalAction if action detail is needed, and FootStates |
+| Weight transfer | L1 summary `FULL_BY_END`, optional timed transfer process, and separate left/right FootState | Step summary, TechnicalAction detail, and FootStates |
 | Amount of turn | L2 fictional `+1/8 turn` | Typed Step turn amount |
 | Alignment/LOD | L1 fictional `FACING + DIAGONAL_WALL` | Semantic `AlignmentDirection`, not angle |
 | CBM/CBMP | L1 fictional CBM marker; F2 fictional CBMP marker | Stable semantic marker/TechnicalAction referencing glossary concepts |
-| Rise & Fall | Fictional “rise action” over `1/2..3/2` | `RiseFallEvent` targeting couple or member |
-| Sway | Fictional “left sway” over `1/1..3/2` | `SwayEvent`; no angle implied |
+| Rise & Fall | Fictional “rise action” over Scheme beats `1/2..3/2` | `RiseFallEvent` targeting couple or member |
+| Sway | Fictional “left sway” over Scheme beats `1/1..3/2` | `SwayEvent`; no angle implied |
 | Geometric inclination | Fictional chest inclination sample `+3°` | Separate `GeometricInclination` with frame/provenance |
 | CouplePosition | Fictional position term A then B | Timed `CouplePositionState` records |
 | Hold/Contact | Fictional hold term H maintained across the change | Separate `HoldContactState` record |
 | Body/head/arms | Fictional chest action and Follower head/arm actions | Reusable Movements and timed targeted `MovementEvent`s |
-| Entry/Exit | Partial FootStates, semantic position/hold, Leader geometry and Follower relation | `EntryState` / `ExitState` components |
+| Entry/Exit | Entry Follower relation and partial semantic/foot state; Exit Leader geometry, Follower relation, and partial state | Asymmetric `EntryState` / `ExitState` components |
 | Trajectories | Straight CoupleCenter, arc Leader, arc Follower | Three independent typed Trajectories in FigureFrame/SU |
 | Couple rotation | Fictional `+1/8 turn` while translating | Independent timed `CoupleRotation` |
 | Vertical movement | Fictional curve `0 → 1.2 → 0.2` | `VerticalProfile`, distinct from Rise & Fall |
@@ -184,7 +184,7 @@ Assume a Figure in Rumba with a FigureVariant named “Fictional L variant.” I
 | Requested dimension | Fictional example | Structured location |
 | --- | --- | --- |
 | Independent Steps | Leader L1/L2/L3 and Follower F1/F2 | Separate `Step` orders on one timeline |
-| Timing/rhythm | Pattern notation `Q & S` initially incomplete, later exact rational subdivisions | `TimingPattern` exactness state plus uses |
+| Timing/rhythm | Scheme-owned Pattern notation `Q & S` initially incomplete, later exact rational beat subdivisions | `TimingPattern` exactness state plus compatible uses |
 | Footwork | F1 fictional `B`, F2 fictional `BF` custom structured vocabulary | Step footwork/contact fields and GlossaryTerms |
 | Weight transfer | L2 partial then full, with explicit bilateral load | Step/TechnicalAction plus left/right FootStates |
 | Amount of turn | F2 fictional `-1/4 turn` | Typed Step turn amount |
@@ -193,7 +193,7 @@ Assume a Figure in Rumba with a FigureVariant named “Fictional L variant.” I
 | Hip Action | Fictional “hip action X” targeting Leader.Hips | Structured HipBodyAction/MovementEvent |
 | Body Action | Fictional torso action spanning L1–L3 | MovementEvent targeting Leader.Torso |
 | Body/head/arms | Follower chest direction geometry plus independent fictional head and arm Movements | DancerFrame/geometry and separate MovementEvents |
-| Entry/Exit | Partial relative positions, both FootStates, position/hold and timing constraint | Boundary snapshots with entered/derived provenance |
+| Entry/Exit | Entry Follower relation and both FootStates; Exit Leader pose and Follower relation; position/hold in both as known | Boundary snapshots with entered/derived provenance; timing constraint remains on FigureVariant |
 | Trajectories | Loop CoupleCenter and independent dancer arcs | Typed local trajectories in SU |
 | Geometric pelvis/chest data | Optional fictional rotations | Body-part geometry, separate from Hip/Body Action |
 

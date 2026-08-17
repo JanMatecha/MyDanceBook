@@ -9,9 +9,11 @@ The product is guided by two priorities:
 
 ## Current phase
 
-The repository currently contains an implementation-ready documentation baseline only. No application has been bootstrapped and no runtime or development dependencies have been selected or installed.
+The repository currently contains an implementation-ready documentation baseline only. Phase 0 domain/architecture refinement is complete, while the concrete Phase-1 technology choices are still awaiting approval. No application has been bootstrapped and no runtime or development dependencies have been selected or installed.
 
 Implementation must not begin until this documentation has been reviewed. The intended direction after review is one full-stack TypeScript application with a React browser UI, a TypeScript API, SQLite, Docker deployment, and SVG visualization. Framework and ORM choices are deliberately still open.
+
+Documentation is ready for Phase 1 implementation decision. This is a decision gate, not authorization to begin Phase 1.
 
 ## Core MVP at a glance
 
@@ -39,6 +41,8 @@ Core MVP intentionally excludes authentication, multiple pairs, clubs, Git-based
 | [Timing and geometry](docs/TIMING_AND_GEOMETRY.md) | Exact timing rules, coordinate frames, trajectories, and routine chaining |
 | [Dance technique model](docs/DANCE_TECHNIQUE_MODEL.md) | Mapping of Standard and Latin technique into the common model |
 | [Architecture](docs/ARCHITECTURE.md) | Runtime boundaries, persistence, deployment, migrations, backup, and concurrency |
+| [Architecture decisions](docs/adr/README.md) | Accepted focused decisions that constrain persisted data and Core safety |
+| [Phase 1 decisions](docs/PHASE1_DECISIONS.md) | Remaining technology and physical-schema choices with deadlines and preferred directions |
 | [Future roadmap](docs/FUTURE_ROADMAP.md) | Deferred increments that must not contaminate Core MVP |
 | [Implementation plan](docs/IMPLEMENTATION_PLAN.md) | Proposed vertical-slice order after documentation approval |
 | [Agent instructions](AGENTS.md) | Rules for future AI-assisted work in this repository |

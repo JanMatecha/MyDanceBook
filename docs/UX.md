@@ -142,7 +142,7 @@ Leader and Follower can enter edit mode at the section or field level. The inter
 - incomplete optional fields can be cleared without validation theatrics;
 - calculations that lack exact inputs show “Cannot yet evaluate” and link to the missing section.
 
-Undo/Redo belongs to the current browser session. Its label should name the action where practical. It does not undo another device's work and must not imply persistent history.
+Undo/Redo belongs to the current browser session. Its label should name the action where practical. An Undo of `A → B` may apply `B → A` only while the relevant current value is still B. If another save changed it, the item becomes unavailable and the UI explains that it cannot be safely undone because the value changed. It never overwrites the newer value, does not undo another device's work, and must not imply persistent history.
 
 ## Technical sections
 
@@ -168,11 +168,19 @@ Each section can summarize completeness with neutral states such as empty, parti
 
 Natural notation is accepted before exact subdivisions. An incomplete TimingPattern shows its readable notation and an “Exact timing not entered” badge. It remains selectable.
 
-When exact rational values are edited, the UI should offer numerator/denominator or dance-friendly subdivision controls and render a readable preview. It must not convert canonical values to rounded floating-point values.
+The timing editor always shows the FigureVariant's TimingScheme when exact values are present. If the variant has none, selecting a Pattern explicitly offers to assign that Pattern's Scheme; notation alone never selects one. A Pattern from another Scheme cannot be silently attached or converted.
+
+When exact rational values are edited, the UI should offer numerator/denominator or dance-friendly subdivision controls, label that values count Scheme beat units, and render a readable preview such as “3/2 = 1½ beats.” It must not convert canonical values to rounded floating-point values.
 
 TimingPatternUse visually indicates a complete pattern plus any clipped first/final interval. A figure beginning mid-bar shows a partial use of a full-bar pattern, not a newly invented partial pattern.
 
 Routine actual phase is displayed as derived when available. A conflict with `entryTimingConstraint` is a review card, not an automatic shift or blocker.
+
+EntryState may show the variant's entry timing constraint for context, but it does not offer another editable copy.
+
+## Floor creation
+
+Creating a Floor asks for exactly the concrete rectangle information needed by the model: name, positive width in metres, and positive length in metres. A Routine never forces this flow and can keep “No floor selected” indefinitely. The UX does not create a dimensionless placeholder Floor.
 
 ## Floor SVG interaction and conventions
 
@@ -197,9 +205,9 @@ If chaining becomes impossible after an incomplete variant, the known geometry r
 
 ## Presence and simultaneous use
 
-When another member appears to be editing the same object, show an informational banner such as “Zuzanna is currently editing this Figure.” Presence expires after a short inactive/disconnected interval and never hard-locks fields.
+When another member appears to be editing the same object, show an informational banner such as “Zuzanna is currently editing this Figure.” Minimal presence tracks session ID, active member/profile, object type/ID, and last-seen time using heartbeat/polling. It expires after a short inactive/disconnected interval, is harmless to lose on restart, carries no authentication meaning, and never hard-locks fields.
 
-Core MVP may use last-write behavior for simple fields, but the UI must surface save failures rather than claiming success. Object revisions, optimistic concurrency, and semantic conflict resolution belong to the roadmap.
+Core MVP may use last-write behavior for simultaneous normal saves to the same simple field, but autosave sends bounded commands rather than stale whole-variant snapshots and the UI must surface save failures rather than claiming success. Presence reduces likely overlap, and the expected-value Undo check prevents a later value from being blindly reverted. Object revisions, optimistic concurrency, and semantic conflict resolution belong to the roadmap.
 
 ## Internal consistency feedback
 
@@ -216,6 +224,8 @@ The UI never silently replaces explicitly entered data with a derived value.
 ## Backup and restore UX
 
 “Create database backup” reports progress, completion time, and the resulting snapshot identity. It must not describe a raw file copy as safe.
+
+This polished user workflow is completed in Phase 6. A tested internal consistent-snapshot capability already exists from Phase 1 for migration safety and early real data; its lack of a manager UI does not mean backups are unavailable internally.
 
 Restore is an intentionally guarded flow:
 

@@ -1,6 +1,6 @@
 # Implementation plan after documentation review
 
-This is a proposed delivery order, not authorization to implement. The next task must first review and approve the documentation baseline and resolve the focused Phase-1 decisions in [ARCHITECTURE.md](ARCHITECTURE.md).
+This is a proposed delivery order, not authorization to implement. Accepted domain/safety decisions are recorded in the [ADR log](adr/README.md); the next task must review and approve the remaining choices in [PHASE1_DECISIONS.md](PHASE1_DECISIONS.md) before bootstrap.
 
 The plan uses vertical slices: each phase leaves executable, tested behavior and migratable data. The textual pair notebook becomes genuinely usable before the richer technique, timing, and geometry editors.
 
@@ -12,7 +12,7 @@ Outcome: product owner and implementer agree on Core scope and open schema/tool 
 - review the relational model, especially Note targets, Etude occurrences, rational encoding, order keys, and typed extensions;
 - review Standard and Latin representability fixtures with the real pair;
 - confirm Czech terminology strategy without inventing official theory;
-- record focused ADRs for framework/runtime, API style, SQLite access/migrations, validation/types, and tests;
+- accept the already prepared focused domain/safety ADRs and resolve the before-bootstrap items in `PHASE1_DECISIONS.md`;
 - define a sample real-data fixture and backup/migration test policy.
 
 Exit gate: no unresolved contradiction, explicit approval to bootstrap, and chosen tools justified by the first notebook rather than future roadmap features.
@@ -27,14 +27,16 @@ Vertical slice:
 2. implement backend health/startup and one minimal React browser shell;
 3. establish domain/application/persistence import boundaries;
 4. configure SQLite, foreign keys, transaction helper, and `schemaVersion` migrations;
-5. define stable ID, timestamp, rational, order-key, archive, typed-extension, and generic-Note attachment storage conventions;
+5. define stable ID, timestamp, archive and immediately needed physical storage conventions; do not create placeholder tables for later-deadline choices;
 6. implement Docker build/runtime and verify mounted `/data/database` and `/data/backups` fail safely when unavailable;
-7. create migration fixtures and automated empty/non-empty migration tests;
-8. establish Czech UI localization and English internal naming conventions.
+7. implement the minimum supported SQLite backup primitive for pre-migration use: consistent snapshot, reopen/integrity/schema check, and safe failure behavior;
+8. make meaningful data-changing migrations invoke/require a verified safety snapshot;
+9. create migration and backup fixtures plus automated empty/non-empty success/failure tests;
+10. establish Czech UI localization and English internal naming conventions.
 
 Do not build Git, rules, authentication, multi-pair, attachments, or 3D foundations.
 
-Exit gate: a clean deployment persists a deliberately small schema fixture across restart, migrations preserve a non-empty fixture, and tests prove ephemeral container storage cannot be mistaken for mounted production data.
+Exit gate: a clean deployment persists a deliberately small schema fixture across restart; migrations preserve a non-empty fixture; a consistent non-empty SQLite snapshot can be created, reopened, and verified; pre-migration invocation works; and tests prove ephemeral container storage cannot be mistaken for mounted production data. No polished backup manager or Restore UI is required yet.
 
 ## Phase 2 — first usable pair notebook
 
@@ -70,6 +72,7 @@ Outcome: the pair can use MyDanceBook for real textual routines and training Not
 - show direct central FigureVariant editing beside occurrence context;
 - implement generic multi-Note behavior with author and explicit scope;
 - implement “duplicate variant and switch this occurrence” atomically;
+- add minimum advisory presence using session/profile/object/last-seen records, heartbeat/polling, stale expiration, and the shared-object warning;
 - render Host as consistently read-only.
 
 ### Slice 2.5: Etudes
@@ -90,13 +93,14 @@ Outcome: the pair progressively records useful Standard and Latin technique with
 ### Slice 3.1: Steps and feet
 
 - independent ordered Leader/Follower Steps;
-- moving/supporting foot, direction, placement, footwork, weight transfer, turn;
+- moving/supporting foot, direction, placement, footwork, concise weight-transfer outcome and overall turn summary;
 - separate left/right FootState with entered/derived provenance;
 - compact discipline-aware Step editors.
 
 ### Slice 3.2: TechnicalActions and targeting
 
 - Step-bound TechnicalAction;
+- timed/internal transfer and rotation detail with derived candidate summaries and non-overwriting review checks;
 - target couple/member/BodyPart;
 - predefined extensible BodyPart hierarchy;
 - structured parameters and lightweight SourceReference.
@@ -126,14 +130,16 @@ Outcome: natural dance notation can be captured early and refined into exact sha
 
 ### Slice 4.1: timing vocabulary
 
-- TimingScheme and complete-bar TimingPattern;
+- TimingScheme defining beat unit and exact rational bar length, plus complete-bar TimingPattern;
 - natural notation first;
 - explicit incomplete/exact-unvalidated/exact-validated states;
 - exact rational storage and arithmetic tests.
 
 ### Slice 4.2: shared Figure timeline
 
+- optional FigureVariant TimingScheme and duration in Scheme beat units (`1/1` = one beat);
 - TimingPatternUse including partial first/final bar slices;
+- same-Scheme enforcement and explicit first-Pattern Scheme assignment for an unschemed variant;
 - exact start/duration for Steps, TechnicalActions, MovementEvents, and state changes;
 - independent dancer sequences on one timeline;
 - non-blocking consistency checks.
@@ -155,6 +161,7 @@ Outcome: the pair can enter simple local geometry and understand the known porti
 ### Slice 5.1: Floors and frame foundation
 
 - rectangular Floor in metres, archive/default behavior, and revision warning;
+- require name and positive width/length when creating every Floor; Routine Floor selection remains optional;
 - optional Routine start placement/orientation;
 - FigureFrame/SU values and optional or assumed SU-to-metre scale;
 - boundary geometry with provenance.
@@ -188,11 +195,11 @@ Outcome: all Core-MVP flows are reliable enough for sustained real use.
 
 - complete responsive review across notebook, tablet, and phone;
 - optimize training quick entry and keyboard/touch behavior;
-- implement ephemeral presence and soft edit warning;
-- implement browser-session Undo/Redo with conservative invalidation;
+- harden the Phase-2 presence behavior and expiry/diagnostics where real usage shows need;
+- implement browser-session Undo/Redo with atomic expected-current-value preconditions and clear refusal when a newer value exists;
 - harden autosave failure/retry communication;
-- implement transactionally consistent backup creation;
-- implement guarded restore with verified safety backup and maintenance mode;
+- build the user-facing backup list/metadata workflow on the Phase-1 consistent-snapshot primitive;
+- implement guarded Restore with confirmation, verified safety backup, maintenance mode, and recovery/failure handling;
 - exercise multiple forward migrations against accumulated real-data copies;
 - complete archive/reference and internal consistency behavior;
 - performance, accessibility, operational logging, and recovery testing;
@@ -210,7 +217,8 @@ Tests begin in Phase 1 and grow with each slice:
 - task-level API contracts, especially compound creation/duplication/reorder commands;
 - responsive end-to-end flows for critical notebook and phone scenarios;
 - SVG render-model semantics and accessibility;
-- backup integrity, restore rollback/safety, and autosave failures.
+- Phase-1 backup integrity/reopen and migration-safety invocation, then Phase-6 Restore rollback/safety and autosave failures;
+- conditional Undo refusal when another session changed the expected current value.
 
 No phase defers all testing to Phase 6. Phase 6 expands risk/failure coverage and performs integrated hardening.
 

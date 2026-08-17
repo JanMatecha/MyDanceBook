@@ -7,6 +7,7 @@ These instructions apply to the whole repository.
 - The current approved deliverable is documentation only.
 - Do not bootstrap, install, or implement the application unless the user explicitly starts an implementation task after reviewing the documentation.
 - `docs/CORE_MVP.md` defines the release boundary. `docs/FUTURE_ROADMAP.md` is not a backlog for Core MVP.
+- Accepted focused decisions live in `docs/adr/`; unresolved implementation choices live in `docs/PHASE1_DECISIONS.md`. Do not turn preferred directions into implemented choices without approval.
 - Keep documentation internally consistent and use cross-links instead of duplicating authoritative rules.
 
 ## Product priorities
@@ -23,10 +24,13 @@ These instructions apply to the whole repository.
 - A materially different execution becomes a duplicated, independent `FigureVariant`; occurrence-only advice belongs in local `RoutineFigure` notes.
 - `Etude` is a separate cyclic training construct, not a `Dance`, and keeps every referenced figure's source-dance identity.
 - Leader and Follower steps are independently ordered and timed on one shared rational figure timeline. Their step counts need not match.
-- `Step`, step-bound `TechnicalAction`, and independent timed `MovementEvent` are different concepts.
+- `Step`, step-bound `TechnicalAction`, and independent timed `MovementEvent` are different concepts. A Step common field summarizes the numbered Step; a TechnicalAction describes timed/internal detail and never silently overwrites an entered summary.
 - `TimingPattern` always describes a complete bar. A `TimingPatternUse` may expose only part of the first or final bar. Do not create artificial partial-bar patterns.
+- Exact `RationalTime` counts beat units defined by the FigureVariant's optional `TimingScheme`: `1/1` is one Scheme beat and `3/2` is one and one-half. A variant without a Scheme has no canonical exact time, and incompatible Patterns cannot be assigned as exact timing.
 - Figure timing is relative. Routine musical phase is derived from `musicalStartAnchor` and ordered variant durations where possible; do not maintain a duplicate manual routine timing sequence.
-- `FigureFrame` is Leader-based. Routine geometry chains from Leader exit position and orientation.
+- `FigureVariant.entryTimingConstraint` is the single optional entry-timing constraint. EntryState may display it by reference but never stores an editable copy.
+- `FigureFrame` is Leader-based: Leader entry pose is origin/`+Y` by definition and is not duplicated in EntryState. Routine geometry chains from Leader exit position and orientation in ExitState.
+- A Floor requires name, positive width in metres, and positive length in metres at creation. Unknown floor information means a Routine has no selected Floor.
 - `CoupleCenter` is a visual/choreographic center, not a physical center of mass. Translation and `CoupleRotation` are independent.
 - Do not conflate dance-semantic theory with geometry: Rise & Fall is not `VerticalProfile`, Sway is not geometric inclination, Hip/Body Action is not pelvis/chest rotation, Alignment/Direction is not an absolute angle, and CouplePosition is not Hold/Contact.
 - Trajectory arrowheads indicate forward/backward travel only. A chest triangle indicates chest direction only, never head or gaze direction.
@@ -43,7 +47,8 @@ Never invent official dance restrictions, values, classifications, or WDSF/ČSTS
 - Keep stable identities and relationships relational. Use structured extensible parameters for specialized, evolving technique; do not use one application-wide JSON blob or a table per imagined dance term.
 - Keep entered canonical data distinguishable from derived data and from browser/session operational state.
 - Tailscale is outside the application.
-- Core-MVP backups must use a supported transactionally consistent SQLite backup mechanism. Never copy a live database file naively.
+- A minimum tested, reopenable, transactionally consistent SQLite backup capability is required in Phase 1 before real-data reliance and meaningful migrations. Never copy a live database file naively; polished Restore UX remains Phase 6.
+- Session Undo applies an inverse only when the relevant current value still equals the original command's expected post-value. Otherwise refuse/invalidate the Undo item and preserve the newer value.
 
 ## Implementation quality, once implementation is approved
 

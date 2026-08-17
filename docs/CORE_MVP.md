@@ -67,37 +67,38 @@ This document is authoritative for the first usable release. “Core MVP” mean
 ### Structured technique
 
 - Leader and Follower Steps are first-class, independently ordered objects on one shared Figure timeline; their counts and timing may differ.
-- Step supports optional common fields for moving/supporting foot, direction, placement, footwork, weight transfer, amount of turn, and extensible details.
+- Step supports optional common fields for moving/supporting foot, direction, placement, footwork, weight transfer, amount of turn, and extensible details. These fields are concise entered summaries/results of the numbered Step.
 - Left and right FootState can separately describe load and contact; explicit and derived states retain their provenance.
-- A TechnicalAction is bound to a Step and can target couple, member, or BodyPart with start, duration, type, parameters, and optional source.
+- A TechnicalAction is bound to a Step and describes timed/internal process detail. It can target couple, member, or BodyPart with start, duration, type, parameters, and optional source. It may derive a candidate Step summary but never silently replaces an entered summary; disagreement can require review.
 - Movement, MovementVariant, and MovementEvent support reusable and timed body movement not inherently bound to one Step.
 - A missing Movement automatically gets a first variant after quick creation by name and optional description.
 - BodyPart and GlossaryTerm have predefined, stable system vocabulary plus quick creation of incomplete custom entries.
 - CouplePosition and Hold/Contact are separate extensible timed state layers.
-- EntryState and ExitState are optional, incomplete boundary snapshots and do not duplicate the full figure definition.
+- EntryState and ExitState are optional, incomplete boundary snapshots and do not duplicate the full figure definition. FigureFrame already defines Leader entry pose; EntryState stores no independent copy or timing constraint, while ExitState may store the Leader exit pose required for chaining.
 - The model stores dance-semantic Rise & Fall, Sway, and Hip/Body Action independently from VerticalProfile, geometric inclination, and body-part geometry.
 - Standard and Latin technical templates control emphasis and order, not domain validity.
 
 ### Timing
 
-- Precise event timing uses exact rational values on one relative FigureVariant timeline; floating point is not canonical.
-- TimingScheme describes reusable meter, bar, notation, and optional nominal tempo conventions without permanent one-to-one Dance coupling.
+- Precise event timing uses exact rational counts of the beat unit defined by the FigureVariant's optional TimingScheme. `1/1` is one Scheme beat and `3/2` is one and one-half; floating point is not canonical.
+- TimingScheme defines its musical beat unit and complete `barLength` in those beat units, plus reusable meter, notation, and optional nominal tempo conventions without permanent one-to-one Dance coupling.
+- A FigureVariant may have no TimingScheme and remain fully usable, but it then has no canonical exact duration or exact event times. Assigning the first Pattern may explicitly select its Scheme; notation alone never infers it.
 - TimingPattern always represents one complete bar and may initially contain only name and natural notation.
 - Incomplete exact subdivision is marked incomplete/unvalidated but remains selectable.
-- TimingPatternUse places full or clipped portions of complete-bar patterns on a Figure timeline, including partial first/final uses.
+- TimingPatternUse places full or clipped portions of complete-bar patterns on a Figure timeline, including partial first/final uses. Every use shares the FigureVariant's TimingScheme; incompatible assignment is refused or retained as review-required legacy/import data.
 - Steps, TechnicalActions, MovementEvents, semantic states, and geometry can share that timeline.
-- Optional `entryTimingConstraint` is distinct from actual routine placement.
+- Optional `FigureVariant.entryTimingConstraint` is the only editable entry timing constraint and exists only with a selected Scheme. EntryState contains no duplicate; actual routine placement is distinct and derived.
 - Routine's optional `musicalStartAnchor` plus ordered exact variant durations derives actual musical phase where possible; there is no duplicate manual routine timing sequence.
 - Missing or inconsistent exact timing yields non-blocking “cannot yet verify” or “requires review” feedback.
 
 ### Geometry and floor visualization
 
-- Floor is an archivable named rectangle with dimensions in metres. A Routine can exist without one.
+- Floor creation requires name, positive width in metres, and positive length in metres. A Floor is an archivable concrete rectangle; a Routine can exist without one.
 - Figure geometry is authored in Leader-based local `FigureFrame` and abstract Step Units (SU), not primarily normalized floor coordinates or metres.
 - Optional DanceSettings can later map SU to metres without changing authored geometry.
 - Trajectories can independently represent CoupleCenter, Leader, and Follower with simple straight, arc, and loop segments entered numerically or through forms.
 - CoupleCenter is choreographic/visual, not a physical centre of mass; CoupleRotation is independent from its translation.
-- Entry/Exit geometry includes optional Follower relation and Leader boundary placement/orientation.
+- EntryState may include optional Follower relation and semantic/foot boundary state; Leader entry pose is FigureFrame origin/`+Y` by definition. ExitState may include Leader exit placement/orientation and Follower exit relation.
 - A Routine's optional start placement transforms the first Figure; Leader ExitState establishes the next FigureFrame. Missing geometry stops absolute derivation but not editing.
 - An interactive 2D SVG shows the rectangular Floor, figure-start numbers, selected figure, known paths and orientations, and overflow.
 - The SVG follows the arrowhead and chest-marker semantics defined in [UX.md](UX.md) and [TIMING_AND_GEOMETRY.md](TIMING_AND_GEOMETRY.md).
@@ -108,10 +109,10 @@ This document is authoritative for the first usable release. “Core MVP” mean
 - The UI is Czech and responsive in one browser application. Notebook is the full editor; tablet and phone support browsing, notes, Done, simple edits, and review.
 - Core MVP requires a live connection to its backend.
 - Changes autosave to SQLite.
-- Two members can use the application simultaneously and see informational presence/soft-lock warnings; no object is hard-locked.
-- Undo/Redo is limited to the current browser session and does not promise cross-user conflict awareness.
+- Two members can use the application simultaneously and see ephemeral informational presence warnings identified by session/profile/object and stale expiry; no object is hard-locked and presence is not authentication.
+- Undo/Redo is limited to the current browser session. An inverse applies only if the relevant current value still equals the expected value written by the original command; otherwise Undo is refused/inactivated and the newer value is preserved.
 - Internal checks are non-blocking and use at least `OK`, `REQUIRES REVIEW`, and `CANNOT YET VERIFY` semantics for timing, boundaries, chaining, derivation conflicts, and broken references.
-- The pair can create a transactionally consistent SQLite backup using a supported SQLite mechanism.
+- A minimum tested SQLite snapshot capability exists before Phase-2 real-data reliance and meaningful migrations. The completed Core release lets the pair create a transactionally consistent backup using a supported SQLite mechanism.
 - Restore warns, requires confirmation, creates a safety backup of current state first, and then restores the selected backup.
 - Schema migrations are versioned and preserve real data; ambiguous transformations are retained and flagged for review.
 
@@ -173,7 +174,7 @@ All examples below use fictional user-entered content and assert product behavio
 
 ### 7. Refine incomplete timing
 
-**Given** a TimingPattern containing only “Example rhythm” and notation “S Q Q,” **when** it is used by a variant, **then** the variant remains editable and exact calculations say they cannot yet evaluate. **When** exact rational subdivision is later supplied, **then** calculations use it without replacing any stable references.
+**Given** a TimingPattern containing only “Example rhythm” and notation “S Q Q,” **when** it is selected for a variant without a Scheme, **then** the user explicitly accepts that Pattern's TimingScheme and the variant remains editable while exact calculations say they cannot yet evaluate. **When** exact rational subdivision is later supplied, **then** `1/1` means one Scheme beat, all values share that Scheme, and calculations use them without replacing stable references.
 
 ### 8. Add movement independent of steps
 
@@ -181,7 +182,7 @@ All examples below use fictional user-entered content and assert product behavio
 
 ### 9. Visualize partial geometry
 
-**Given** a rectangular Floor and a Routine with start placement, **when** the first two variants contain chainable Leader exit geometry but the third does not, **then** SVG renders the known portion, clearly marks where derivation stops, and keeps the third occurrence editable.
+**Given** a Floor created with name and positive metre dimensions and a Routine with start placement, **when** the first two variants contain chainable Leader exit geometry but the third does not, **then** SVG renders the known portion, clearly marks where derivation stops, and keeps the third occurrence editable.
 
 ### 10. Use the application during training on phone
 
@@ -194,6 +195,10 @@ All examples below use fictional user-entered content and assert product behavio
 ### 12. Back up and restore real data
 
 **Given** autosaved SQLite data, **when** the user creates a backup, **then** the snapshot is transactionally consistent. **When** Restore is confirmed, **then** a safety backup of current state is created before restoration.
+
+### 13. Refuse an unsafe session Undo
+
+**Given** Jan changed one value from A to B and Zuzanna later changed it from B to C, **when** Jan invokes Undo, **then** the expected-current-value check fails, C remains unchanged, and Jan is told that the action can no longer be safely undone.
 
 ## Release gate
 

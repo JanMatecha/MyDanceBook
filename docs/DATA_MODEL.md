@@ -106,10 +106,10 @@ These are pair UI/interpretation preferences, not official theory.
 | Field | Requirement | Meaning |
 | --- | --- | --- |
 | `name` | required | Pair-owned label |
-| `widthMeters`, `lengthMeters` | required once geometry is used | Positive rectangle dimensions |
+| `widthMeters`, `lengthMeters` | required at creation | Positive rectangle dimensions in metres |
 | `archivedAt` | optional | Removes Floor from new selection while preserving references |
 
-Core MVP floors are rectangles only. A Routine may refer to no Floor. A used Routine retains `nominalFloorId` plus a floor revision/reference fingerprint sufficient to warn when changed dimensions could invalidate a view. The exact revision mechanism is an implementation design decision; a copy of all floor state is not a new independent Floor.
+Core MVP floors are concrete rectangles only; dimensionless Floor objects do not exist. Progressive capture is preserved because a Routine may refer to no Floor. A used Routine retains `nominalFloorId` plus a floor revision/reference fingerprint sufficient to warn when changed dimensions could invalidate a view. The exact revision mechanism is an implementation decision; a copy of all floor state is not a new independent Floor. See [ADR 0006](adr/0006-floor-creation-requires-dimensions.md).
 
 ## Figure knowledge
 
@@ -132,7 +132,9 @@ One reusable concrete execution by the whole couple.
 | --- | --- | --- |
 | `figureId` | required | Parent Figure and therefore source Dance |
 | `name` | generated/editable | Does not block first variant creation |
-| `entryTimingConstraint` | optional | Relative musical-entry constraint, not actual routine phase |
+| `timingSchemeId` | optional | The single unit/context for every exact timeline value in this variant |
+| `duration` | optional RationalTime | Exact relative duration in the selected Scheme's beat units |
+| `entryTimingConstraint` | optional | The sole editable musical-entry constraint; present only with and interpreted in the selected Scheme |
 | `archivedAt` | optional | Existing references remain valid |
 
 The aggregate is conceptually divided into:
@@ -205,16 +207,22 @@ An ordered `EtudeFigure` occurrence is required conceptually to represent placeh
 
 ### RationalTime value
 
-Exact time is a normalized pair `(numerator: integer, denominator: positive integer)`. Equal fractions compare equal after normalization. Floating-point display values are never canonical.
+Exact time is a normalized pair `(numerator: integer, denominator: positive integer)` counting beat units defined by the owning FigureVariant's TimingScheme. Equal fractions compare equal after normalization. Floating-point display values are never canonical.
 
-An optional timeline field is absent when unknown; `0/1` means known zero. `start` and `duration` are relative to the FigureVariant origin unless explicitly identified as pattern-local.
+- `1/1` is one Scheme beat unit.
+- `3/2` is one and one-half Scheme beat units.
+- `0/1` is known zero.
+
+An optional timeline field is absent when unknown. `start` and `duration` are relative to the FigureVariant origin unless explicitly identified as Pattern-local. An exact rational timeline value is invalid without a FigureVariant TimingScheme context; a variant without a Scheme remains usable but stores no canonical exact values. See [ADR 0001](adr/0001-canonical-rational-time.md).
 
 ### TimingScheme
 
 A reusable timing system:
 
 - stable ID and name;
-- optional meter numerator/denominator and beats per bar;
+- a defined musical `beatUnit` used by RationalTime;
+- exact `barLength` as RationalTime in those beat units;
+- optional meter numerator/denominator and notation/count metadata;
 - notation conventions;
 - optional nominal tempo and unit;
 - optional Dance associations, never a permanent one-Scheme/one-Dance restriction;
@@ -227,7 +235,7 @@ A reusable **complete-bar** rhythm pattern:
 - `timingSchemeId`;
 - name;
 - natural notation (minimum usable timing content);
-- optional ordered exact subdivisions/events in rational bar-local time;
+- optional ordered exact subdivisions/events in the Scheme's rational beat units over exactly `barLength`;
 - exact-status `INCOMPLETE`, `EXACT_UNVALIDATED`, or `EXACT_VALIDATED`;
 - optional source metadata and archived state.
 
@@ -242,7 +250,9 @@ Places one TimingPattern on one FigureVariant timeline:
 - `patternStart` and `usedDuration` within the complete bar when exact;
 - optional readable use notation while exact values are incomplete.
 
-The first or final use may be clipped. Pattern identity still represents the whole bar.
+The Pattern and FigureVariant must have the same `timingSchemeId` for every use, including notation-only/incomplete use. If the variant has no Scheme, selecting its first Pattern may explicitly assign the Pattern's Scheme in the same command; notation is never used to infer one. An incompatible assignment is refused. Imported/legacy incompatibility is retained as review-required and excluded from exact calculation.
+
+The first or final use may be clipped. Pattern identity still represents the whole bar. Pattern-local and Figure-local rational values share the same Scheme beat unit, so slice mapping is an exact unit-preserving offset.
 
 The FigureVariant's exact duration is derived from exact timed content/uses when unambiguous or may be explicitly entered as canonical duration with provenance. A mismatch is retained as a consistency issue, not silently repaired.
 
@@ -258,11 +268,13 @@ The FigureVariant's exact duration is derived from exact timed content/uses when
 | `start`, `duration` | optional rational | Common Figure timeline |
 | `movingFoot`, `supportingFoot` | optional | Structured vocabulary/reference |
 | `direction`, `placement`, `footwork` | optional | Stable common technique fields |
-| `weightTransfer`, `amountOfTurn` | optional | Structured common values plus provenance |
+| `weightTransfer`, `amountOfTurn` | optional | Entered concise summary/result plus optional derived candidate and provenance |
 | `alignmentDirection` | optional | Dance-semantic value, not an absolute angle |
 | `parameters` | optional | Namespaced typed specialized details |
 
 Step order and exact time are related but independent: unknown timing does not prevent order; overlapping or simultaneous steps are valid. Leader and Follower numbering starts independently.
+
+Common Step fields summarize the numbered Step. For example, `amountOfTurn` is the overall turn and `weightTransfer` is the concise outcome/state. Timed internal development belongs to TechnicalAction. A detailed action may derive a candidate summary, but an entered Step summary remains canonical until explicitly changed; contradiction is review feedback, not automatic synchronization. See [ADR 0005](adr/0005-step-summary-vs-technical-action.md).
 
 ### FootState
 
@@ -288,6 +300,8 @@ A Step-specific timed action:
 - optional SourceReference.
 
 Examples include weight transfer, supporting-foot rotation, foot pressure/action, and turn during a Step. Actions not inherently tied to one Step belong to MovementEvent.
+
+TechnicalAction is process/detail, not a second Step summary. A rotation action can say when/how turn develops; a weight-transfer action can describe timing and mechanics. If both detailed actions and common Step summary exist, neither silently overwrites the other.
 
 ## Reusable movement and targeting
 
@@ -359,18 +373,26 @@ A structured semantic value usable on Step, state, or boundary. It composes voca
 
 ### EntryState and ExitState
 
-Each FigureVariant may have zero or one of each concise boundary snapshot. A snapshot can contain optional components:
+Each FigureVariant may have zero or one of each concise boundary snapshot. Their geometry is intentionally asymmetric because FigureFrame defines Leader entry.
 
-- Leader local position/orientation;
-- Follower position/orientation relative to Leader;
+EntryState can contain optional:
+
+- Follower position/orientation relative to Leader and FigureFrame;
 - CouplePosition and Hold/Contact;
 - per-member left/right FootStates and weight distribution;
-- selected basic body/Alignment state;
-- timing phase information or constraint.
+- selected basic body/Alignment state.
+
+Leader entry center is FigureFrame origin and Leader entry forward is FigureFrame `+Y` by definition; EntryState stores no independently editable copy. It also stores no timing phase/constraint. UI may expose the canonical `FigureVariant.entryTimingConstraint` by reference.
+
+ExitState can contain optional:
+
+- Leader exit position/orientation in FigureFrame, used to establish the next FigureFrame;
+- Follower exit position/orientation relative to Leader/FigureFrame;
+- the same concise semantic, foot, weight, and selected body/Alignment state categories as EntryState.
 
 Snapshots do not duplicate Steps, full timed state histories, trajectories, or all technical events.
 
-Each derivable component is conceptually a `BoundaryValue` with optional `enteredValue`, optional `derivedValue`, derivation version/source, and comparison status. The entered value stays canonical. A disagreement produces `REQUIRES_REVIEW`; absence of enough detailed data produces `CANNOT_YET_VERIFY`.
+Each genuinely derivable component is conceptually a `BoundaryValue` with optional `enteredValue`, optional `derivedValue`, derivation version/source, and comparison status. The entered value stays canonical. A disagreement produces `REQUIRES_REVIEW`; absence of enough detailed data produces `CANNOT_YET_VERIFY`. The frame-defined Leader entry pose is not a BoundaryValue. See [ADR 0002](adr/0002-boundary-state-semantics.md).
 
 ## Geometry and visual profiles
 
@@ -476,7 +498,9 @@ Core relational invariants include:
 - Section members are contiguous in the one Routine order;
 - Step subject is Leader or Follower and order is unique per subject/variant;
 - rational denominators are positive;
+- every exact FigureVariant timeline value has one `timingSchemeId`, and exact PatternUses reference Patterns with that same Scheme;
 - TimingPattern describes a complete bar even when exact subdivisions are absent;
+- Floor name and both positive metre dimensions are present at creation;
 - archived references remain resolvable;
 - derived caches can be discarded without losing entered canonical data.
 
@@ -492,7 +516,7 @@ Destructive deletion is permitted only when the object is unreferenced, the acti
 
 The representability tests in [DANCE_TECHNIQUE_MODEL.md](DANCE_TECHNIQUE_MODEL.md) confirm that one fictional Standard variant and one fictional Latin variant can store all requested dimensions without forcing important content into a Note or generic blob. The model is conceptually coherent with independent dancer steps, shared timing, semantic/geometric separation, and Leader-based geometric chaining.
 
-No unresolved product contradiction was found. The following are implementation decisions/risks to resolve during schema design, not reasons to expand Core scope:
+No unresolved product contradiction was found. Accepted focused decisions are recorded in [the ADR log](adr/README.md). Remaining physical choices are detailed in [PHASE1_DECISIONS.md](PHASE1_DECISIONS.md), including:
 
 - choose the physical generic-Note attachment strategy while retaining referential integrity;
 - choose SQL encoding/indexing for normalized rationals and ordered keys;
@@ -500,4 +524,4 @@ No unresolved product contradiction was found. The following are implementation 
 - define the minimal Floor revision fingerprint that detects materially changed dimensions;
 - define typed extension serialization and schema-version conventions before real extension data is written.
 
-These decisions require focused ADRs and migration tests in implementation Phase 1; they do not require multi-tenant, rules, Git, or 3D infrastructure.
+These choices require review at their documented deadlines and migration tests where persisted data is involved; they do not require multi-tenant, rules, Git, or 3D infrastructure.

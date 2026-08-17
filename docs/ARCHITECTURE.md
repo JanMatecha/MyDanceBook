@@ -23,6 +23,10 @@ This document is authoritative for the intended Core-MVP runtime, logical bounda
 
 “One application” means one deliverable and operational unit, not an undifferentiated codebase. Frontend, application/domain services, persistence, and infrastructure remain logically separated.
 
+## Accepted focused decisions
+
+The [ADR log](adr/README.md) fixes the decisions that would otherwise make early persisted data ambiguous or unsafe: TimingScheme beat units, boundary-state geometry, Phase-1 backup, safe conditional session Undo, Step summary versus TechnicalAction detail, and mandatory Floor dimensions. Remaining technology choices are recommendations only in [PHASE1_DECISIONS.md](PHASE1_DECISIONS.md).
+
 ## System context
 
 ```mermaid
@@ -70,7 +74,7 @@ Expose task-level operations rather than raw table mutation. Important commands 
 
 Commands enforce cross-entity invariants transactionally. Queries produce views with canonical data, derived values, incompleteness, and consistency status clearly separated.
 
-The concrete wire protocol (REST-style JSON, RPC-style HTTP, or a narrowly chosen framework convention) is an implementation decision. It must support typed contracts, stable error codes, rational values without float loss, and atomic task-level commands.
+The concrete wire protocol (REST-style JSON, RPC-style HTTP, or a narrowly chosen framework convention) is an implementation decision. It must support typed contracts, stable error codes, rational numerator/denominator values with explicit TimingScheme context and no float loss, atomic task-level commands, and conditional expected-value inverses for safe Undo.
 
 ### Domain model
 
@@ -117,7 +121,7 @@ Maintain an explicit ordered migration history and a database schema-version rec
 
 Migration policy:
 
-1. create a pre-migration safety backup for changes with meaningful data risk;
+1. invoke the Phase-1 minimum backup capability and verify a pre-migration safety snapshot before changes with meaningful data risk;
 2. preserve stable IDs and references;
 3. transform unambiguous values deterministically;
 4. retain ambiguous original information and mark it for review;
@@ -126,6 +130,8 @@ Migration policy:
 7. test migration from realistic previous fixtures, not only an empty database.
 
 Rollback-by-down-migration is not assumed to be safer. Recovery can use the verified safety backup when a forward migration cannot complete.
+
+The SQLite driver and minimum backup mechanism are selected together before data-changing migrations. Phase 1 proves that a non-empty consistent snapshot can be created, reopened, and integrity-checked; migration policy must not depend on the later Phase-6 backup-manager UI.
 
 ### Typed extension storage
 
@@ -142,7 +148,7 @@ Extension records remain small and locally owned. Promotion to common relational
 
 ## Autosave
 
-Autosave sends bounded field/section commands, not full stale aggregate snapshots. Each command validates only what its operation needs and accepts incomplete surrounding objects.
+Autosave sends bounded field/section/task commands, not full stale aggregate snapshots. Replacing a FigureVariant with a large client snapshot is never the normal save mechanism. Each command validates only what its operation needs and accepts incomplete surrounding objects.
 
 The UI distinguishes:
 
@@ -152,11 +158,11 @@ The UI distinguishes:
 - connection/save failed;
 - persisted but consistency review required.
 
-Same-field simultaneous edits may use simple last-successful-write behavior in Core MVP. Presence reduces accidental overlap, but no semantic merge or optimistic-concurrency framework is promised. Failed writes must remain visible and retryable; the UI cannot display “saved” before the backend transaction succeeds.
+Same-field simultaneous normal edits may use simple last-successful-write behavior in Core MVP; this is an accepted residual risk. Presence reduces accidental overlap, and conditional Undo prevents an obvious later value from being reverted, but neither is semantic merge or an optimistic-concurrency framework. Failed writes must remain visible and retryable; the UI cannot display “saved” before the backend transaction succeeds.
 
 ## Simultaneous use and presence
 
-Leader and Follower can connect at the same time. A lightweight ephemeral presence service tracks active profile, object/section being edited, and expiry heartbeat. It supports an informational warning and never hard-locks an object.
+Leader and Follower can connect at the same time. A minimum ephemeral presence record contains `sessionId`, active member/profile, `objectType`, `objectId`, and `lastSeenAt`, refreshed by heartbeat/polling and removed after stale expiry. It supports an informational warning and never hard-locks an object.
 
 Presence data:
 
@@ -169,15 +175,19 @@ Advanced object revisions, optimistic concurrency, semantic conflict resolution,
 
 ## Session Undo/Redo
 
-Undo/Redo lives in each browser session as a stack of successful user commands and inverse intent. An Undo issues a normal new backend command; it is not a database time machine and does not survive restart.
+Undo/Redo lives in each browser session as a stack of successful user commands and inverse intent. For a bounded change `A → B`, the item records target, A, and expected current value B. Undo issues an atomic conditional command that applies `B → A` only if the relevant current value still equals B. It is not a database time machine and does not survive restart.
 
-The stack should be cleared or conservatively limited when its assumptions become unsafe, such as after restore or large external refresh. It does not promise to undo another member's edits or resolve cross-user conflicts. Persistent conflict-aware Undo belongs to a later increment.
+If the current value is no longer B, the command changes nothing, the item is refused/inactivated, and the UI explains that it cannot be safely undone. Multi-field inverse commands require all relevant expected values to match and never partially undo an atomic action. The stack is cleared or conservatively limited when assumptions become unsafe, such as after Restore or large external refresh. This lightweight precondition is defined in [ADR 0004](adr/0004-safe-session-undo.md); persistent history, object revisions, and conflict-aware Undo remain future work.
 
 ## Backup and restore
 
 Backups use a supported SQLite online backup mechanism/API to create a transactionally consistent snapshot. A raw filesystem copy of an active database is forbidden.
 
-Conceptual create-backup flow:
+### Phase 1 minimum capability
+
+Before Phase 2 stores real pair data, an internal service/maintenance command must create a consistent snapshot, reopen it, and verify integrity plus schema metadata. It is callable before meaningful migrations and tested with non-empty data and failure paths. It does not require a user-facing backup browser or Restore controls. See [ADR 0003](adr/0003-phase1-sqlite-backup.md).
+
+The same safe primitive underlies the completed Core user-facing create-backup flow:
 
 1. request backend backup operation;
 2. use SQLite's supported snapshot/backup facility while normal consistency guarantees hold;
@@ -186,7 +196,9 @@ Conceptual create-backup flow:
 5. atomically publish backup metadata/name;
 6. report success only after verification.
 
-Conceptual restore flow:
+### Phase 6 completed workflow
+
+Phase 6 adds backup list/metadata and the guarded user-facing restore flow:
 
 1. validate selected backup metadata and compatibility;
 2. show warning and require explicit user confirmation;
@@ -236,6 +248,7 @@ No test framework is selected yet, but implementation requires:
 - persistence transaction/foreign-key tests;
 - API contract tests for atomic compound commands;
 - backup consistency, restore safety-backup, and failure-recovery tests;
+- conditional Undo tests proving a changed expected value is never overwritten;
 - autosave and simultaneous-use risk tests;
 - responsive end-to-end tests for the notebook and key phone flows;
 - deterministic SVG model tests plus focused visual/accessibility checks.
@@ -253,15 +266,6 @@ Core code should expose narrow seams, not implement future subsystems:
 
 ## Decisions deferred to Phase 1
 
-Focused ADRs are required for:
+[PHASE1_DECISIONS.md](PHASE1_DECISIONS.md) is the authoritative checklist for runtime layout, API and validation contracts, SQLite access/migrations, test tools, and the remaining physical mappings/encodings with their deadlines and preferred directions.
 
-- TypeScript runtime/build layout and full-stack framework, if any;
-- API transport/style and shared type-validation strategy;
-- SQLite driver and migration mechanism;
-- ORM/query builder/raw SQL choice;
-- test tools;
-- Note attachment physical mapping;
-- rational, order-key, and typed-extension SQL encoding;
-- arc/loop segment parameterization.
-
-Selection criteria are data safety, migration transparency, type correctness, low operational complexity, and speed to the Phase-2 textual notebook—not future-platform feature count.
+Selection criteria remain data safety, migration transparency, type correctness, low operational complexity, and speed to the Phase-2 textual notebook—not future-platform feature count. Preferred directions are not approved library choices and must not be implemented silently.

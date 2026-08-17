@@ -97,6 +97,8 @@ Its displayed number comes from order, not identity. Inserting an earlier occurr
 
 A RoutineSection is optional and describes one contiguous range in the global order. It might mean a floor side, a thematic part, or another choreographic grouping, but it is not inherently a physical floor side and never creates a second order.
 
+A Routine does not require a Floor. When the pair does create a Floor, it is a concrete rectangle requiring name and positive width/length in metres; unknown floor information remains “no Floor selected,” not a dimensionless placeholder object.
+
 ### Notes
 
 One generic Note concept attaches multiple individual notes to useful domain objects. Notes are shared by both members and retain author and timestamps for context. The UI makes scope visible, especially the difference between shared FigureVariant notes and notes for this occurrence only.

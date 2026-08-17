@@ -6,7 +6,7 @@ This document is authoritative for temporal truth, musical placement, coordinate
 
 ### One exact Figure timeline
 
-Every FigureVariant has one relative timeline. Its origin is `t = 0` at the variant boundary; exact positions and durations are rational values. Leader Steps, Follower Steps, TechnicalActions, MovementEvents, timed semantic states, TimingPatternUses, trajectory samples, and VerticalProfile points all refer to this same timeline.
+Every FigureVariant has one relative timeline. Its origin is `t = 0` at the variant boundary. The variant may optionally select one TimingScheme; only then can positions and durations be canonical exact rational values. Leader Steps, Follower Steps, TechnicalActions, MovementEvents, timed semantic states, TimingPatternUses, trajectory samples, and VerticalProfile points all refer to this same timeline and inherit that one Scheme context.
 
 There is no separate Leader clock, Follower clock, technique clock, or geometry clock. Independent dancer sequences can overlap and have different counts because they place different objects on the common axis.
 
@@ -21,20 +21,31 @@ flowchart LR
     T --> GE["Geometry / visual profiles"]
 ```
 
-Time values are normalized integer fractions `(numerator, denominator)` with a positive denominator. Canonical calculations use rational arithmetic. Decimal values may be display conveniences only; writing `0.333333` must not silently replace canonical `1/3`.
+Time values are normalized integer fractions `(numerator, denominator)` with a positive denominator. A value counts the musical beat unit defined by the FigureVariant's TimingScheme:
 
-Unknown exact time is `null`/absent, not zero. An event may have known order or natural notation while exact start or duration remains unknown.
+- `1/1` means one Scheme beat unit;
+- `3/2` means one and one-half Scheme beat units;
+- `0/1` means known zero.
+
+Canonical calculations use rational arithmetic. Decimal values may be display conveniences only; writing `0.333333` must not silently replace canonical `1/3`.
+
+Unknown exact time is `null`/absent, not zero. An event may have known order or natural notation while exact start or duration remains unknown. A variant without a TimingScheme is valid, but all canonical exact timeline fields, including exact duration, are absent. See [ADR 0001](adr/0001-canonical-rational-time.md).
 
 ### TimingScheme
 
 TimingScheme provides reusable musical context:
 
-- meter and beats per bar when known;
+- a defined musical beat unit used by every RationalTime in its context;
+- exact `barLength` in those beat units;
+- meter and count metadata when known;
 - notation conventions and labels;
-- bar length in its canonical rational unit;
 - optional nominal tempo and tempo unit.
 
+For example, a fictional Scheme whose bar contains three of its defined beats has `barLength = 3/1`. This is an example of representation, not an official claim about a Dance.
+
 A Scheme can be associated with one or more Dances or an Etude. The association is a convenient default, not a permanent one-to-one rule. Training tempo changes and sophisticated tempo maps are later work.
+
+FigureVariant owns optional `timingSchemeId`. Choosing the first Pattern may explicitly assign its Scheme to an unschemed variant as one user-confirmed command. Natural notation never infers the Scheme. Changing Scheme after exact values exist requires an explicit reviewed conversion or removal/re-entry; relabelling the same fractions is forbidden.
 
 ### TimingPattern is always a complete bar
 
@@ -60,6 +71,8 @@ TimingPatternUse maps a slice of a complete Pattern into a FigureVariant:
 - `patternStart`: exact offset within the complete bar;
 - `usedDuration`: exact length exposed by this use.
 
+The Pattern and FigureVariant must reference the same TimingScheme for every use, including notation-only/incomplete use. For exact mapping, Pattern-local `p`, `patternStart`, `usedDuration`, and Figure-local `figureStart` all count the same beat unit.
+
 For a Pattern with full-bar length `B`, a valid exact slice satisfies:
 
 ```text
@@ -72,6 +85,8 @@ A Pattern-local event at `p` inside the used slice maps to Figure time:
 ```text
 tFigure = figureStart + (p - patternStart)
 ```
+
+This is a unit-preserving rational translation. Assigning a Pattern from another Scheme is refused without changing the variant. If incompatible data arrives through import/legacy storage, preserve it as `REQUIRES_REVIEW` and exclude it from exact calculations until explicitly resolved.
 
 The first and final TimingPatternUse may be partial; intermediate uses are normally complete bars. A Figure beginning on counts 2–3 of a bar points to the appropriate slice of a complete Pattern. It never creates a misleading “2 3” partial-bar Pattern.
 
@@ -91,7 +106,7 @@ Figure boundaries therefore do not imply bar boundaries.
 
 ### Variant duration and relative timing
 
-FigureVariant owns relative timing and may also own an optional `entryTimingConstraint`. The constraint describes a permitted or preferred musical phase; it is not the variant's actual phase in a Routine.
+FigureVariant owns optional `timingSchemeId`, relative exact `duration`, and optional `entryTimingConstraint`. Exact duration and the constraint are absent without a Scheme. The constraint is the single editable source describing a permitted or preferred musical phase in that Scheme; EntryState stores no copy. It is not the variant's actual phase in a Routine.
 
 Exact variant duration may be:
 
@@ -103,7 +118,7 @@ If entered duration and a derivable candidate disagree, keep both and report `RE
 
 ### Routine musical placement
 
-Routine may contain one optional `musicalStartAnchor`, such as a Scheme plus exact phase “count 1.” Without it, the routine remains fully editable but absolute musical phases cannot be derived.
+Routine may contain one optional `musicalStartAnchor`, containing a TimingScheme and an exact rational phase such as “count 1.” Without it, the routine remains fully editable but absolute musical phases cannot be derived.
 
 For compatible exact timing, occurrence start phase is derived recursively:
 
@@ -112,7 +127,7 @@ phase(occurrence 1) = musicalStartAnchor
 phase(occurrence i + 1) = phase(occurrence i) + duration(variant i)
 ```
 
-Phase is reduced according to the active Scheme/bar only for display and constraint comparison; the accumulated rational routine time can remain unbounded. Placeholders, missing variants, unknown duration, or incompatible Schemes stop exact derivation at that boundary. Later occurrences remain editable and show `CANNOT_YET_VERIFY`.
+Phase is reduced modulo the anchor Scheme's `barLength` only for display and constraint comparison; the accumulated rational routine time can remain unbounded. Placeholders, missing variants, unschemed variants, unknown duration, or a variant Scheme incompatible with the anchor stop exact derivation at that boundary. Later occurrences remain editable and show `CANNOT_YET_VERIFY`.
 
 There is no manually maintained `RoutineFigure.startPhase` sequence. A cache of derived phase, if used, is disposable and versioned against its inputs.
 
@@ -129,7 +144,7 @@ Core-MVP checks include:
 - entered and derived duration agree;
 - routine phase can be propagated through each boundary;
 - derived entry phase satisfies an entryTimingConstraint;
-- predecessor exit timing and successor entry state do not clearly contradict.
+- every exact value has one variant Scheme and every exact PatternUse matches it.
 
 Use these outcomes:
 
@@ -143,7 +158,7 @@ Checks do not claim official technique validity and do not block ordinary captur
 
 ### Units and canonical layers
 
-Floor dimensions and placement use metres. Figure geometry is authored in local abstract Step Units (`SU`). `1 SU` means a normal step scale for authoring; it is not a physical constant and Core MVP does not require body calibration.
+Every created Floor has name, positive width, and positive length; its dimensions and placement use metres. A Routine can have no Floor. Figure geometry is authored in local abstract Step Units (`SU`). `1 SU` means a normal step scale for authoring; it is not a physical constant and Core MVP does not require body calibration.
 
 An optional Pair/DanceSettings `metersPerSU` maps local geometry to a Floor. If it is absent, the UI may use a clearly labelled assumed visualization scale so the pair can still see relative choreography. In that state, metre placement and overflow are approximate and must not be presented as measured truth. Entering calibration later changes derived floor rendering, not authored SU coordinates.
 
@@ -191,16 +206,11 @@ This formula documents axis meaning, not a requirement to store transformed copi
 
 ### Entry and Exit geometry
 
-EntryState and ExitState may independently contain:
+EntryState may contain Follower position/orientation relative to Leader/FigureFrame plus concise semantic, foot, weight, and selected body boundary state. Leader entry center is exactly FigureFrame origin and Leader entry forward is exactly `+Y`; neither is stored as ordinary independent EntryState geometry. EntryState also contains no editable timing constraint.
 
-- Leader center and forward orientation;
-- Follower position and orientation relative to Leader;
-- optional selected body orientation values;
-- semantic states handled separately from geometry.
+ExitState may contain Leader exit center/orientation in FigureFrame, Follower exit relation, and concise boundary state. Exit Leader center/orientation is the key input to Routine chaining.
 
-At Figure entry, Leader local center is normally the FigureFrame origin with forward `+Y`; explicitly entered boundary information can still document incomplete or exceptional knowledge. Exit Leader center/orientation is the key input to Routine chaining.
-
-Manual and derived boundary components coexist with provenance. If detailed trajectory end or DancerFrame implies a different Exit value than the entered snapshot, neither overwrites the other.
+Manual and derived boundary components coexist with provenance where derivation is meaningful. If detailed trajectory end or DancerFrame implies a different Exit value than the entered snapshot, neither overwrites the other. The frame-defined Leader entry pose has no competing entered/derived copies. See [ADR 0002](adr/0002-boundary-state-semantics.md).
 
 ### Routine geometric chaining
 
