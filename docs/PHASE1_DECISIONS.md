@@ -1,206 +1,100 @@
-# Phase 1 implementation decisions
+# Phase 1 decisions
 
-This document lists technology and physical-schema choices that remain open after the accepted [ADRs](adr/README.md). It does not authorize bootstrap or implementation and does not change Core-MVP product scope.
+This document records the decisions that make the Phase 1.1 foundation executable. Product concepts that belong to later phases remain deliberately deferred; no placeholder product tables or screens are introduced in Phase 1.1.
 
-“Preferred direction” below is a recommendation to evaluate, not an accepted technology decision. Each choice must be recorded before its deadline, with data-safety and migration consequences tested.
+## Accepted for Phase 1.1
 
-## Decision schedule
+### Runtime and repository layout
 
-| Decision | Latest safe deadline |
-| --- | --- |
-| Runtime layout, SQLite driver, migration mechanism, data-access level, initial test runner | Before bootstrap/first migration |
-| API style and runtime contract validation | Before first application endpoint |
-| Note attachment and Routine/Etude physical occurrence strategy | Before their Phase-2 migrations |
-| `orderKey` representation | Before the first ordered occurrence migration |
-| Typed extension encoding | Before Phase-3 extension data |
-| RationalTime SQL encoding/indexing | Before the first exact-timing migration in Phase 4 |
-| ARC and LOOP parameterization | Before the first trajectory migration in Phase 5 |
-| Floor revision fingerprint | Before the first Floor/Routine-floor migration in Phase 5 |
+- Node.js 24 LTS, strict TypeScript and ECMAScript modules everywhere.
+- npm with one root `package.json` and one lock file.
+- One deployable application rather than a monorepo.
+- Source modules are separated into `frontend`, `server`, `application`, `domain` and `persistence`.
 
-## 1. TypeScript/full-stack runtime layout
+### Frontend
 
-**Decision to make:** Choose how one deployable TypeScript application separates browser, server, domain, and persistence code.
+- React with Vite and TypeScript.
+- CSS Modules and a small set of CSS design tokens.
+- Local component state, `useReducer` and small focused Context providers are sufficient for the early product.
+- Native `fetch` with a small typed API client is the HTTP boundary.
+- Tailwind, Bootstrap, Material UI, Redux, Zustand, Axios and TanStack Query are not part of Phase 1 or Phase 2 without a new decision.
 
-**Constraints:** React frontend; TypeScript backend; one Docker deployable; logical boundaries from [ARCHITECTURE.md](ARCHITECTURE.md); no multi-service platform.
+### HTTP and application boundary
 
-**Options:**
+- Fastify provides a task-oriented JSON HTTP API and serves the production frontend build.
+- Routes validate external values with Zod and call application commands or queries.
+- The design uses explicit commands and queries, but is neither event sourcing nor a CQRS platform.
+- Fastify, Zod and transport types must not enter the domain module.
 
-1. one Node server package serving built React assets plus API, with internal directories/modules;
-2. small workspace with frontend/server/domain packages that still builds one container;
-3. a full-stack meta-framework with server and browser conventions.
+### Persistence
 
-**Preferred direction:** Option 1 or a minimal form of option 2. Use a meta-framework only if its SQLite lifecycle, backup access, and migrations remain explicit.
+- SQLite is the source of truth and `better-sqlite3` is the driver.
+- Persistence uses explicit SQL repositories; no ORM or query builder is introduced.
+- Connections enable foreign keys, WAL mode and a 5,000 ms busy timeout.
+- Multi-statement changes use explicit transactions.
+- UUIDv7 values stored as SQLite `TEXT` are the stable identifier convention. Display order remains a separate concern.
 
-**Deadline:** Before bootstrap and therefore before the first migration.
+### Migrations
 
-## 2. API style
+- Migrations are ordered, versioned SQL files executed by a small TypeScript runner.
+- Applied version, name, checksum and timestamp are stored in the database.
+- An applied migration is never silently changed or rerun.
+- Each migration declares whether it requires a pre-migration backup. The first infrastructure migration does not.
+- SQL is preferred. A controlled TypeScript transform may be added later only when a data migration cannot be expressed safely in SQL.
+- Down migrations are not required. Recovery relies on verified backups and forward fixes.
 
-**Decision to make:** Define the browser-to-server command/query contract.
+### Data root and delivery
 
-**Constraints:** bounded field/section/task commands; atomic compound operations; exact rationals without float loss; stable error codes; no stale whole-FigureVariant autosave.
+- `MYDANCEBOOK_DATA_DIR` is the configurable data root.
+- Production must provide the variable explicitly; the container sets it to `/data`.
+- The database, backups, attachments and repository directories are derived below that root.
+- Attachments and repository directories are reserved only; they do not imply Phase 2 features.
+- Production is one container and one Node.js process. Storage is initialized before traffic is accepted.
+- The runtime image runs as a non-root user when the mounted data directory is writable for that user.
 
-**Options:** task-oriented JSON HTTP/RPC; resource-oriented REST with command endpoints for compound work; framework-specific server actions.
+### Testing and tooling
 
-**Preferred direction:** Task-oriented typed JSON HTTP commands and explicit queries. It maps directly to atomic domain operations and safe conditional Undo.
+- Vitest covers unit tests and integration tests against real temporary SQLite databases.
+- Persistence, migration and backup behavior is not mocked.
+- Browser end-to-end testing is deferred until there is a real user workflow.
+- ESLint and Prettier are the initial linting and formatting tools.
 
-**Deadline:** May follow the first database migration, but must precede the first application endpoint.
+### Backup safety
 
-## 3. Shared runtime validation and type contracts
+- A live database is backed up through SQLite's supported backup mechanism, never by copying its active files.
+- A backup is written under a temporary name, reopened independently, checked with `integrity_check`, checked for migration metadata and only then published under its final unique name.
+- Failed or invalid attempts are not reported as successful backups.
+- The migration runner exposes an executable pre-migration safety hook for future risky migrations.
 
-**Decision to make:** Choose how untrusted runtime payloads and shared TypeScript types stay aligned.
+## Accepted domain clarifications
 
-**Constraints:** browser input must be validated at the server; exact rational pairs and discriminated technical/trajectory values need structural validation; domain types must not depend on HTTP.
+### FigureVariant duplication
 
-**Options:** schema-first runtime validators that infer TypeScript types; OpenAPI/JSON-Schema generation; handwritten validators beside TypeScript interfaces.
+Duplicating a `FigureVariant` copies its complete structured canonical owned definition and attached `SourceReference` values, but not `Note` values. The copy is independent and has no persistent genealogy link. A `RoutineFigure` that initiated the duplication may switch to the copy; every other occurrence remains unchanged.
 
-**Preferred direction:** A schema-first runtime-validation boundary with generated/inferred transport types, mapped into independent domain types. Avoid trusting compile-time types at runtime.
+### Etude timing context
 
-**Deadline:** Before the first application endpoint; library choice may wait until runtime layout is selected.
+`Etude.timingSchemeId`, when present, is contextual training timing. It does not override canonical timing on referenced figure variants. If the two contexts cannot be converted unambiguously, evaluation and verification must stop rather than guess. Detailed behavior remains a Phase 4 concern.
 
-## 4. SQLite driver
+### Musical phase origin
 
-**Decision to make:** Select the Node-compatible SQLite driver and its production/runtime characteristics.
+Musical phase is elapsed time from the start of the bar. Count 1 is `0/1`, count 2 is `1/1`, count 3 is `2/1`, and the next bar starts at `barLength`; modulo `barLength` returns `0`. Count labels must never be stored as phase values.
 
-**Constraints:** foreign keys, transactions, prepared statements, exact integer round-trip, one container, supported consistent backup API/mechanism, and reliable reopen/integrity tests.
+## Deliberately deferred
 
-**Options:** synchronous native driver; asynchronous native binding; a lower-level binding wrapped by repositories. Pure browser/WASM SQLite is not a fit for the server source of truth.
+The following questions are not required to bootstrap Phase 1.1 and remain open until their owning phase:
 
-**Preferred direction:** A mature native server driver with explicit transaction control and proven access to SQLite's supported backup facilities. Backup capability is a selection gate, not an afterthought.
+| Decision | Owning phase | Constraint already known |
+| --- | --- | --- |
+| Physical Note mapping | Phase 2 | Notes are first-class and survive safe target deletion as history. |
+| Rational SQL representation | Phase 4 | The domain representation is exact reduced fractions in beat units. |
+| Ordered collection key strategy | Phase 2 | Stable identity and display order are separate. |
+| Extension payload encoding | Phase 2 or later | No placeholder JSON columns in the Phase 1.1 schema. |
+| Occurrence table strategy | Phase 2 | `RoutineFigure` is required; further occurrence types need evidence. |
+| `ARC` geometry representation | Phase 5 | Preserve semantic movement independently from geometry. |
+| `LOOP` and repeated path semantics | Phase 5 | Do not improvise closure or repeated traversal rules. |
+| Floor revision semantics | Phase 5 | A floor always has a name and dimensions; revisions must preserve historical meaning. |
 
-**Deadline:** Before the first migration.
+## Revisit triggers
 
-## 5. Migration mechanism
-
-**Decision to make:** Choose how ordered, tested forward migrations and `schemaVersion` are executed.
-
-**Constraints:** non-empty fixture tests; pre-migration backup; explicit SQL visibility; preserve ambiguous data; no assumption that down migrations are safer.
-
-**Options:** versioned SQL files with a small TypeScript runner; query-builder migrations; a dedicated migration tool compatible with the selected driver.
-
-**Preferred direction:** Versioned explicit SQL plus a small transactional runner unless a chosen tool makes generated SQL equally reviewable. Data migrations may use narrowly scoped TypeScript with retained originals and review flags.
-
-**Deadline:** Before the first migration.
-
-## 6. ORM, query builder, or raw SQL
-
-**Decision to make:** Select the persistence access level behind application repositories.
-
-**Constraints:** relational integrity, transparent migrations, typed queries where useful, small SQLite deployment, hybrid common/extension model, no framework leakage into domain types.
-
-**Options:** explicit raw SQL repositories; thin typed query builder; full ORM.
-
-**Preferred direction:** Thin typed query builder or explicit SQL behind repositories, with explicit SQL migrations. A full ORM needs a concrete advantage and must not hide constraints or backup/migration behavior.
-
-**Deadline:** Before the first migration that application repositories access.
-
-## 7. Test framework
-
-**Decision to make:** Select unit/integration/component/browser test tools and fixture conventions.
-
-**Constraints:** TypeScript domain tests, temporary real SQLite databases, migration matrices, React component behavior, responsive browser flows, backup failure paths.
-
-**Options:** Node's built-in test runner plus browser-specific tools; a TypeScript-native runner such as Vitest; Jest plus a separate E2E runner.
-
-**Preferred direction:** A fast TypeScript-native unit/integration runner with isolated temporary SQLite fixtures, plus a separate real-browser E2E tool when UI slices begin.
-
-**Deadline:** Unit/integration choice before the first migration; E2E tool may wait until Phase 2 UI work.
-
-## 8. Physical Note attachment mapping
-
-**Decision to make:** Enforce exactly one valid target for each generic Note in SQLite.
-
-**Constraints:** one Note concept, many target entity types, stable target IDs, real foreign-key integrity, easy addition of supported targets, no orphan Notes.
-
-**Options:** target-specific attachment tables; nullable target foreign-key columns with a one-target CHECK; polymorphic `targetType/targetId` validated by services/triggers.
-
-**Preferred direction:** Target-specific attachment tables and a unified query view/service. This is repetitive but keeps real foreign keys and avoids weak polymorphic references. Verify the exactly-one invariant transactionally.
-
-**Deadline:** May wait until immediately before the first Note migration in Phase 2.
-
-## 9. RationalTime SQL encoding and indexing
-
-**Decision to make:** Persist normalized numerator/denominator values and query them safely.
-
-**Constraints:** semantics are fixed by [ADR 0001](adr/0001-canonical-rational-time.md); no floating point; positive denominator; normalization; exact equality/order; values inherit one FigureVariant TimingScheme.
-
-**Options:** two INTEGER columns per rational field; a referenced RationalTime value table; normalized textual fractions.
-
-**Preferred direction:** Paired INTEGER numerator/denominator columns with CHECK constraints and normalization in domain/persistence code. Add indexes only for demonstrated range/order queries; cross-multiplication must consider SQLite integer overflow bounds.
-
-**Deadline:** May wait until before the first exact-timing migration in Phase 4, but the transport/domain representation should be agreed in Phase 1.
-
-## 10. `orderKey` representation
-
-**Decision to make:** Store stable total order while item IDs remain unchanged.
-
-**Constraints:** insert/reorder transactions; one pair and modest routine sizes; contiguous RoutineSection invariant; deterministic queries; no order encoded in IDs.
-
-**Options:** contiguous integers with transactional renumbering; sparse integers; lexicographic/fractional rank strings.
-
-**Preferred direction:** Contiguous or safely sparse integers with transactional renumbering. This is simpler and sufficient for one-pair data; fractional rank complexity is not justified without large-list evidence.
-
-**Deadline:** Before the first ordered RoutineFigure/EtudeFigure migration in Phase 2.
-
-## 11. Typed extension storage encoding/versioning
-
-**Decision to make:** Persist sparse evolving technique without creating an application-wide blob or untyped EAV store.
-
-**Constraints:** small owner scope; namespace; schema version; typed values/units/references; migrations can promote stable properties; common searchable data remains relational.
-
-**Options:** versioned JSON object on each eligible owner; typed extension rows per value; an extension record per owner/namespace containing a small JSON value.
-
-**Preferred direction:** One small versioned extension record per owner and namespace, with validated JSON content and explicit owner relation. Do not share one blob across the FigureVariant. Promote commonly queried fields through migrations.
-
-**Deadline:** May wait until before the first Phase-3 extension data.
-
-## 12. RoutineFigure versus EtudeFigure physical strategy
-
-**Decision to make:** Use separate tables or one shared occurrence table while preserving different container rules.
-
-**Constraints:** RoutineFigure has Done and optional Section; EtudeFigure is discipline-constrained and cyclic-container-specific; both allow placeholders/references; neither has technical overrides.
-
-**Options:** separate tables with shared application abstractions; one occurrence table with exactly-one-container constraints; base occurrence table plus subtype tables.
-
-**Preferred direction:** Separate tables and shared domain/application helpers. The small duplication preserves foreign keys and avoids nullable cross-container constraints.
-
-**Deadline:** Before Phase-2 occurrence migrations, not before the initial Pair/schema migration.
-
-## 13. Trajectory ARC parameterization
-
-**Decision to make:** Define one canonical, non-redundant local-frame representation of an arc.
-
-**Constraints:** FigureFrame/SU; signed direction; stable endpoints; optional rational time anchors; form-based entry; continuity checks; no spline editor.
-
-**Options:** start point + centre + signed sweep; start/end + radius + side/direction; centre + radius + start angle + signed sweep.
-
-**Preferred direction:** Start point, centre point, and signed sweep, with end derived and validated. It expresses traversal direction without storing conflicting endpoint/radius copies.
-
-**Deadline:** May wait until before the Phase-5 trajectory migration.
-
-## 14. Trajectory LOOP parameterization
-
-**Decision to make:** Define what the simple Core `LOOP` segment means and how it closes.
-
-**Constraints:** FigureFrame/SU; numeric/form entry; explicit traversal; stable entry/exit; no Bézier/spline semantics; must not be an arbitrary unvalidated parameter blob.
-
-**Options:** full circular loop using ARC-compatible centre/radius/sweep; elliptical loop with centre/radii/rotation/start parameter; a validated composite of simpler STRAIGHT/ARC segments.
-
-**Preferred direction:** Begin with a full circular loop represented by ARC-compatible parameters and an explicit full signed sweep. Choose ellipse/composite support only if real routines demonstrate the need before schema finalization.
-
-**Deadline:** May wait until before the Phase-5 trajectory migration.
-
-## 15. Floor revision fingerprint
-
-**Decision to make:** Record enough reference information on a Routine to detect that its selected Floor's physical dimensions changed after placement was reviewed.
-
-**Constraints:** Floor always has concrete positive metre dimensions; Routine Floor selection is optional; changing a central Floor must not silently imply that existing visualization remains reviewed; do not copy a new independent Floor into Routine.
-
-**Options:** monotonically increasing Floor revision stored with the Routine selection; selected Floor `updatedAt`; deterministic hash of geometry-relevant Floor fields.
-
-**Preferred direction:** An explicit integer Floor revision incremented only for geometry-relevant changes, with the selected revision stored on Routine. It is clearer than timestamp semantics and simpler to inspect than a hash.
-
-**Deadline:** May wait until before the Phase-5 Floor/Routine-floor migration.
-
-## Phase 1 decision gate
-
-Before bootstrap, accept decisions 1 and 4–7 and record their rationale. Before the first endpoint, also accept 2–3. Later-deadline physical choices must remain explicitly unresolved—no placeholder columns or speculative tables should be created for them in the initial migration.
+Revisit an accepted decision only when implementation evidence makes it unsafe or disproportionately costly, or when a later phase introduces requirements the decision cannot satisfy without distorting the domain model.

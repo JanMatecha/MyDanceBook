@@ -1,6 +1,6 @@
 # Technical architecture
 
-This document is authoritative for the intended Core-MVP runtime, logical boundaries, persistence, deployment, backup, autosave, and simultaneous-use behavior. It does not approve implementation yet and deliberately does not select a full-stack framework, API library, ORM, or test framework.
+This document is authoritative for the Core-MVP runtime, logical boundaries, persistence, deployment, backup, autosave, and simultaneous-use behavior. The Phase 1 technical baseline is accepted in [ADR 0010](adr/0010-phase1-technical-baseline.md); later product capabilities remain staged in the implementation plan.
 
 ## Architectural drivers
 
@@ -14,18 +14,19 @@ This document is authoritative for the intended Core-MVP runtime, logical bounda
 ## Approved technical direction
 
 - one full-stack TypeScript codebase and deployable application;
-- React + TypeScript browser frontend;
-- TypeScript backend/API;
-- SQLite as the live working database and Core-MVP source of truth;
+- Node.js 24 LTS, strict TypeScript, ESM and one npm package;
+- React + Vite browser frontend using CSS Modules;
+- Fastify task-oriented JSON API with Zod transport validation;
+- SQLite through `better-sqlite3`, explicit SQL and versioned SQL migrations;
 - one Docker container for application deployment;
-- a mounted `/data` root for persistent state;
+- a mounted `/data` root selected through `MYDANCEBOOK_DATA_DIR`;
 - browser-native interactive SVG for the two-dimensional floor view.
 
 “One application” means one deliverable and operational unit, not an undifferentiated codebase. Frontend, application/domain services, persistence, and infrastructure remain logically separated.
 
 ## Accepted focused decisions
 
-The [ADR log](adr/README.md) fixes the decisions that would otherwise make early persisted data ambiguous or unsafe: TimingScheme beat units, boundary-state geometry, Phase-1 backup, safe conditional session Undo, Step summary versus TechnicalAction detail, and mandatory Floor dimensions. Remaining technology choices are recommendations only in [PHASE1_DECISIONS.md](PHASE1_DECISIONS.md).
+The [ADR log](adr/README.md) fixes the decisions that would otherwise make early persisted data ambiguous or unsafe, including the Phase 1 technical baseline, variant duplication, Etude timing context, musical phase origin, TimingScheme beat units, boundary-state geometry, backup, safe conditional session Undo, Step summary versus TechnicalAction detail, and mandatory Floor dimensions. Deliberately deferred physical choices remain listed in [PHASE1_DECISIONS.md](PHASE1_DECISIONS.md).
 
 ## System context
 
@@ -74,7 +75,7 @@ Expose task-level operations rather than raw table mutation. Important commands 
 
 Commands enforce cross-entity invariants transactionally. Queries produce views with canonical data, derived values, incompleteness, and consistency status clearly separated.
 
-The concrete wire protocol (REST-style JSON, RPC-style HTTP, or a narrowly chosen framework convention) is an implementation decision. It must support typed contracts, stable error codes, rational numerator/denominator values with explicit TimingScheme context and no float loss, atomic task-level commands, and conditional expected-value inverses for safe Undo.
+Fastify exposes task-oriented JSON HTTP endpoints. The protocol must support typed contracts, stable error codes, rational numerator/denominator values with explicit TimingScheme context and no float loss, atomic task-level commands, and conditional expected-value inverses for safe Undo.
 
 ### Domain model
 
@@ -90,7 +91,7 @@ Presence, backup/restore coordination, health reporting, and maintenance state a
 
 ## Project structure direction
 
-A future implementation should separate at least:
+The implementation separates:
 
 ```text
 application root
@@ -101,7 +102,7 @@ application root
 └── tests/ organized around the same boundaries
 ```
 
-This is a responsibility map, not a required package/workspace layout. Phase 1 should choose the least complex TypeScript setup that preserves these import boundaries and one deployable product.
+These are source directories in one npm package, preserving the import boundaries while producing one deployable product.
 
 ## SQLite strategy
 

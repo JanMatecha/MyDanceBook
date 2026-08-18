@@ -120,6 +120,8 @@ If entered duration and a derivable candidate disagree, keep both and report `RE
 
 Routine may contain one optional `musicalStartAnchor`, containing a TimingScheme and an exact rational phase such as “count 1.” Without it, the routine remains fully editable but absolute musical phases cannot be derived.
 
+Phase is zero-based elapsed time from the start of a bar, not the human count number. In a Scheme with consecutive one-beat counts, count 1 is `0/1`, count 2 is `1/1`, and count 3 is `2/1`. The next bar starts at `barLength`, and reducing that value modulo `barLength` returns `0/1`. Count labels remain presentation metadata. See [ADR 0009](adr/0009-musical-phase-origin.md).
+
 For compatible exact timing, occurrence start phase is derived recursively:
 
 ```text
@@ -132,6 +134,8 @@ Phase is reduced modulo the anchor Scheme's `barLength` only for display and con
 There is no manually maintained `RoutineFigure.startPhase` sequence. A cache of derived phase, if used, is disposable and versioned against its inputs.
 
 An occurrence whose derived phase conflicts with its FigureVariant `entryTimingConstraint` is marked `REQUIRES_REVIEW`. The system does not shift the music, insert time, alter the variant, or create a local timing override.
+
+An Etude's optional TimingScheme is a contextual training aid, not an override of referenced FigureVariant timing. Exact comparison or conversion proceeds only when an explicit unambiguous relationship is available; otherwise the result is `CANNOT_YET_VERIFY`. See [ADR 0008](adr/0008-etude-timing-context.md).
 
 ### Timing consistency results
 

@@ -151,7 +151,7 @@ flowchart LR
 
 These blocks are logical ownership, not three mandatory JSON blobs. Relational child rows use an explicit subject (`COUPLE`, `LEADER`, `FOLLOWER`, or a BodyPart target), so Leader and Follower data cannot be accidentally mixed. A future migration may extract more independent dancer variants without changing what Core MVP means today.
 
-Duplicating a variant clones all current canonical child data in one transaction, creates a new independent ID, and switches only the initiating occurrence. It does not persist `derivedFromVariantId` in Core MVP.
+Duplicating a variant clones all structured canonical owned data and attached SourceReferences in one transaction, creates new independent IDs, and switches only the initiating occurrence when requested. Notes are not copied, every other occurrence keeps its current reference, and Core MVP does not persist `derivedFromVariantId`. See [ADR 0007](adr/0007-figure-variant-duplication.md).
 
 ## Choreographic containers
 
@@ -199,7 +199,7 @@ RoutineFigure contains no generic fields for alternative steps, timing, technica
 
 ### Etude and EtudeFigure
 
-`Etude` is a separate aggregate with required `discipline` (`STANDARD` or `LATIN`) and `name`, fixed `isCyclic = true`, and optional `timingSchemeId`.
+`Etude` is a separate aggregate with required `discipline` (`STANDARD` or `LATIN`) and `name`, fixed `isCyclic = true`, and optional `timingSchemeId`. That Scheme is contextual training timing only; it never overrides canonical timing on a referenced FigureVariant. An ambiguous or unavailable conversion yields `CANNOT_YET_VERIFY`, never guessed values. See [ADR 0008](adr/0008-etude-timing-context.md).
 
 An ordered `EtudeFigure` occurrence is required conceptually to represent placeholders and references without inventing an Etude-specific knowledge library. It has stable ID, `orderKey`, optional Figure, optional FigureVariant, and no technical override. Generic Notes may attach to it, but Core MVP does not extend the RoutineFigure-specific Done requirement to EtudeFigure. A linked Figure's Dance must match the Etude discipline. Whether RoutineFigure and EtudeFigure share a physical occurrence table is deferred; their conceptual container rules remain distinct.
 
