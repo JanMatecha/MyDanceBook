@@ -28,7 +28,7 @@ The model already requires exact rational time and one relative FigureVariant ti
 
 Exact times are unambiguous and can be compared or added only within a known compatible Scheme. Changing a variant's Scheme after exact data exists requires an explicit reviewed conversion or clearing/re-entry; it is never a metadata-only relabel.
 
-Physical SQL encoding remains a Phase-1 decision. Whatever encoding is chosen must preserve normalized numerator/denominator values and Scheme context without floating-point round trips.
+Physical SQL encoding remains deferred to Phase 4. Whatever encoding is chosen must preserve normalized numerator/denominator values and Scheme context without floating-point round trips.
 
 ## Rejected alternative
 

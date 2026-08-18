@@ -86,7 +86,7 @@ The following questions are not required to bootstrap Phase 1.1 and remain open 
 
 | Decision | Owning phase | Constraint already known |
 | --- | --- | --- |
-| Physical Note mapping | Phase 2 | Notes are first-class and survive safe target deletion as history. |
+| Physical Note mapping | Phase 2 | Notes are first-class and must retain valid target semantics. Exact target deletion/history behavior remains to be decided in Phase 2. |
 | Rational SQL representation | Phase 4 | The domain representation is exact reduced fractions in beat units. |
 | Ordered collection key strategy | Phase 2 | Stable identity and display order are separate. |
 | Extension payload encoding | Phase 2 or later | No placeholder JSON columns in the Phase 1.1 schema. |
