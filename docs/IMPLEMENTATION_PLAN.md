@@ -46,12 +46,16 @@ Outcome: the pair can use MyDanceBook for real textual routines and training Not
 
 ### Slice 2.1: one Pair and navigation
 
+Status: implemented.
+
 - first-run transaction creates Pair, Leader, and Follower;
 - profile switcher includes Host presentation mode;
 - seed the ten Dance identities and render Standard/Latin/Etudes navigation;
 - persist basic settings without authentication or tenancy.
 
 ### Slice 2.2: central figure library
+
+Status: next planned slice; not implemented.
 
 - create/archive/restore Figure by Dance and name;
 - atomically create its first FigureVariant;

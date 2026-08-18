@@ -1,5 +1,12 @@
+import { GetAppStateQuery } from '../application/app-state/get-app-state.js';
 import { GetHealthQuery } from '../application/health/get-health.js';
+import {
+  InitializePairCommand,
+  UpdatePairNamesCommand,
+} from '../application/pair/pair-use-cases.js';
 import { initializePersistence } from '../persistence/initialize.js';
+import { SqliteDanceCatalogue } from '../persistence/sqlite/dance-catalogue.js';
+import { SqlitePairRepository } from '../persistence/sqlite/pair-repository.js';
 import { buildServer } from './app.js';
 import { loadConfig } from './config.js';
 
@@ -11,8 +18,15 @@ async function main(): Promise<void> {
   });
 
   try {
+    const pairRepository = new SqlitePairRepository(persistence.database);
+    const danceCatalogue = new SqliteDanceCatalogue(persistence.database);
     const app = await buildServer({
       healthQuery: new GetHealthQuery(persistence.healthStatusReader),
+      pairServices: {
+        getAppState: new GetAppStateQuery(pairRepository, danceCatalogue),
+        initializePair: new InitializePairCommand(pairRepository),
+        updatePairNames: new UpdatePairNamesCommand(pairRepository),
+      },
       staticRoot: config.staticRoot,
       logger: true,
     });

@@ -9,9 +9,9 @@ The product is guided by two priorities:
 
 ## Current phase
 
-Phase 0 domain and architecture refinement is complete. Phase 1.1 now provides the executable technical foundation: a minimal Czech React page, a Fastify health API, explicit SQLite initialization and migrations, verified SQLite backup infrastructure, automated tests, and a production Docker definition.
+Phase 0 domain and architecture refinement and the Phase 1.1 technical foundation are complete. Phase 2.1 adds the first real product slice: first-run creation of one Pair with Leader and Follower, persistent profile selection including read-only Host presentation mode, editable display names, and navigation over five seeded Standard and five seeded Latin dance identities with separate Etudes entries.
 
-This is intentionally not the Phase 2 notebook. Pair onboarding, dance libraries, Figures, Routines, Etudes, Notes, timing and geometry editors are not implemented and no placeholder tables or screens claim otherwise.
+This is not yet the complete Phase 2 notebook. Figures, Routines, Etude records, Notes, timing and geometry editors are not implemented and no placeholder tables or screens claim otherwise.
 
 The accepted implementation baseline is Node.js 24 LTS, strict TypeScript/ESM, React and Vite, Fastify, Zod at transport boundaries, and explicit SQLite through `better-sqlite3`. See [Phase 1 decisions](docs/PHASE1_DECISIONS.md) and [ADR 0010](docs/adr/0010-phase1-technical-baseline.md).
 
