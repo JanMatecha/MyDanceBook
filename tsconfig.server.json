@@ -9,5 +9,10 @@
     "outDir": "dist",
     "sourceMap": true
   },
-  "include": ["src/server/**/*.ts", "src/application/**/*.ts", "src/domain/**/*.ts", "src/persistence/**/*.ts"]
+  "include": [
+    "src/server/**/*.ts",
+    "src/application/**/*.ts",
+    "src/domain/**/*.ts",
+    "src/persistence/**/*.ts"
+  ]
 }

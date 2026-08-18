@@ -29,9 +29,9 @@ describe('SQLite initialization', () => {
     expect(first.database.pragma('journal_mode', { simple: true })).toBe('wal');
     expect(first.database.pragma('busy_timeout', { simple: true })).toBe(5000);
     expect(first.database.pragma('integrity_check', { simple: true })).toBe('ok');
-    expect(
-      first.database.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get(),
-    ).toEqual({ count: 1 });
+    expect(first.database.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()).toEqual(
+      { count: 1 },
+    );
     first.close();
 
     const second = await initializePersistence(options);

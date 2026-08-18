@@ -26,8 +26,9 @@ describe('GET /api/health', () => {
       migrationsDirectory: resolve('migrations'),
     });
     const app = await buildServer({
-      healthQuery: new GetHealthQuery(persistence.healthStatusReader, () =>
-        new Date('2026-08-17T12:00:00.000Z'),
+      healthQuery: new GetHealthQuery(
+        persistence.healthStatusReader,
+        () => new Date('2026-08-17T12:00:00.000Z'),
       ),
     });
 

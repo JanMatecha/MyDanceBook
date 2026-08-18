@@ -1,6 +1,6 @@
-# Implementation plan after documentation review
+# Implementation plan
 
-This is a proposed delivery order, not authorization to implement. Accepted domain/safety decisions are recorded in the [ADR log](adr/README.md); the next task must review and approve the remaining choices in [PHASE1_DECISIONS.md](PHASE1_DECISIONS.md) before bootstrap.
+This is the accepted delivery order. Phase 1.1 bootstrap is implemented; accepted domain, safety and technology decisions are recorded in the [ADR log](adr/README.md) and [PHASE1_DECISIONS.md](PHASE1_DECISIONS.md). Deferred physical choices are resolved only in their owning phase.
 
 The plan uses vertical slices: each phase leaves executable, tested behavior and migratable data. The textual pair notebook becomes genuinely usable before the richer technique, timing, and geometry editors.
 
@@ -20,6 +20,8 @@ Exit gate: no unresolved contradiction, explicit approval to bootstrap, and chos
 ## Phase 1 — project skeleton and database foundation
 
 Outcome: one deployable TypeScript/React/SQLite application shell with safe persistence, but no placeholder dance-feature facades presented as complete.
+
+Status: Phase 1.1 bootstrap implemented. The Docker definition is present; an actual image build remains environment-dependent. Product schema and workflows still begin in Phase 2.
 
 Vertical slice:
 

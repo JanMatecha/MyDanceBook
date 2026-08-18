@@ -12,9 +12,7 @@ describe('runtime configuration', () => {
   });
 
   it('requires each test run to provide its own data root', () => {
-    expect(() => loadConfig({ NODE_ENV: 'test' }, 'C:\\application')).toThrow(
-      ConfigurationError,
-    );
+    expect(() => loadConfig({ NODE_ENV: 'test' }, 'C:\\application')).toThrow(ConfigurationError);
   });
 
   it('derives every persistent path below the configured root', () => {

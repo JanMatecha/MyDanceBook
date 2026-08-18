@@ -4,9 +4,7 @@ import { getHealth, type HealthResponse } from './api/health';
 import styles from './App.module.css';
 
 type HealthState =
-  | { kind: 'loading' }
-  | { kind: 'ready'; value: HealthResponse }
-  | { kind: 'unavailable' };
+  { kind: 'loading' } | { kind: 'ready'; value: HealthResponse } | { kind: 'unavailable' };
 
 export function App() {
   const [health, setHealth] = useState<HealthState>({ kind: 'loading' });

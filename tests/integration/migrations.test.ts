@@ -83,18 +83,18 @@ describe('versioned migrations', () => {
 
     await expect(migrate()).resolves.toMatchObject({ appliedVersions: [] });
     expect(hookCalls).toBe(1);
-    expect(
-      database.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get(),
-    ).toEqual({ count: 2 });
+    expect(database.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()).toEqual({
+      count: 2,
+    });
 
     expect(backupPath).toBeDefined();
     const backup = new Database(backupPath!, { readonly: true, fileMustExist: true });
     expect(
       backup.prepare('SELECT value FROM fixture_records WHERE id = ?').get('record-1'),
     ).toEqual({ value: 'preserve-me' });
-    expect(
-      backup.prepare('SELECT MAX(version) AS version FROM schema_migrations').get(),
-    ).toEqual({ version: 1 });
+    expect(backup.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({
+      version: 1,
+    });
     backup.close();
     database.close();
   });

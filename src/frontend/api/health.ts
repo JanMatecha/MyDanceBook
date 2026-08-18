@@ -13,7 +13,7 @@ const healthResponseSchema = z.object({
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
-  const response = await fetch('/api/health', { signal });
+  const response = await fetch('/api/health', signal ? { signal } : undefined);
 
   if (!response.ok) {
     throw new Error(`Kontrola služby selhala se stavem ${response.status}.`);

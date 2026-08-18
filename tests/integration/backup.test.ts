@@ -4,10 +4,7 @@ import { join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  BackupError,
-  createVerifiedBackup,
-} from '../../src/persistence/sqlite/backup.js';
+import { BackupError, createVerifiedBackup } from '../../src/persistence/sqlite/backup.js';
 import { openDatabase } from '../../src/persistence/sqlite/database.js';
 import { runMigrations } from '../../src/persistence/sqlite/migrations.js';
 import {
@@ -40,14 +37,16 @@ describe('verified SQLite backup', () => {
 
     expect(result.migrationVersion).toBe(1);
     const backup = new Database(result.path, { readonly: true, fileMustExist: true });
-    expect(backup.prepare('SELECT value FROM backup_fixture WHERE id = ?').get('fixture-1')).toEqual({
+    expect(
+      backup.prepare('SELECT value FROM backup_fixture WHERE id = ?').get('fixture-1'),
+    ).toEqual({
       value: 'kept',
     });
     expect(backup.pragma('integrity_check', { simple: true })).toBe('ok');
     backup.close();
-    expect((await readdir(join(root, 'backups'))).some((name) => name.endsWith('.incomplete'))).toBe(
-      false,
-    );
+    expect(
+      (await readdir(join(root, 'backups'))).some((name) => name.endsWith('.incomplete')),
+    ).toBe(false);
     database.close();
   });
 
