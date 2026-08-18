@@ -136,7 +136,7 @@ The SQLite driver and minimum backup mechanism are selected together before data
 
 ### Typed extension storage
 
-Before writing extension data, Phase 1 must define:
+Before an owning slice writes extension data, it must define:
 
 - owner/target identity;
 - namespace and parameter key;
@@ -240,9 +240,9 @@ Core MVP assumes deployment on a network controlled by the pair. There is no log
 
 The backend must still follow ordinary safety basics: validate inputs, avoid arbitrary path access, constrain backup names/locations, protect against malformed requests, and avoid exposing SQLite internals. Real remote guest security requires future authentication/permissions and is explicitly not achieved by Host mode.
 
-## Testing obligations when implementation starts
+## Testing obligations by product slice
 
-No test framework is selected yet, but implementation requires:
+Vitest is the accepted unit and integration test framework. Later product slices must add the relevant coverage below; browser end-to-end tooling remains deferred until the first real user workflow requires it:
 
 - pure domain tests for central-reference, ordering, discipline, rational-time, and state-provenance invariants;
 - migration tests with non-empty fixtures and ambiguous data cases;
@@ -265,8 +265,8 @@ Core code should expose narrow seams, not implement future subsystems:
 - advanced geometry adds segment types/renderers without redefining SU/FigureFrame;
 - 3D adds body models and transforms without making the 2D semantic layers obsolete.
 
-## Decisions deferred to Phase 1
+## Deferred implementation decisions
 
-[PHASE1_DECISIONS.md](PHASE1_DECISIONS.md) is the authoritative checklist for runtime layout, API and validation contracts, SQLite access/migrations, test tools, and the remaining physical mappings/encodings with their deadlines and preferred directions.
+[PHASE1_DECISIONS.md](PHASE1_DECISIONS.md) records the accepted Phase 1 technical baseline and the remaining physical mappings/encodings with their owning phases. Accepted choices remain in force unless implementation evidence exposes a contradiction or safety problem; deferred choices remain open until their owning phase.
 
-Selection criteria remain data safety, migration transparency, type correctness, low operational complexity, and speed to the Phase-2 textual notebook—not future-platform feature count. Preferred directions are not approved library choices and must not be implemented silently.
+Selection criteria for deferred choices remain data safety, migration transparency, type correctness, low operational complexity, and speed to the textual notebook—not future-platform feature count. Do not implement a deferred choice silently.
