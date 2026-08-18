@@ -21,7 +21,7 @@ Exit gate: no unresolved contradiction, explicit approval to bootstrap, and chos
 
 Outcome: one deployable TypeScript/React/SQLite application shell with safe persistence, but no placeholder dance-feature facades presented as complete.
 
-Status: Phase 1.1 bootstrap implemented. The Docker definition is present; an actual image build remains environment-dependent. Product schema and workflows still begin in Phase 2.
+Status: Phase 1.1 bootstrap implemented. The Docker definition is validated by CI. Product schema and workflows begin with the implemented Phase 2.1 slice below.
 
 Vertical slice:
 

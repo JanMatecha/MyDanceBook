@@ -186,7 +186,7 @@ Backups use a supported SQLite online backup mechanism/API to create a transacti
 
 ### Phase 1 minimum capability
 
-Before Phase 2 stores real pair data, an internal service/maintenance command must create a consistent snapshot, reopen it, and verify integrity plus schema metadata. It is callable before meaningful migrations and tested with non-empty data and failure paths. It does not require a user-facing backup browser or Restore controls. See [ADR 0003](adr/0003-phase1-sqlite-backup.md).
+Before Phase 2.1 began storing real pair data, Phase 1 established an internal service/maintenance command that creates a consistent snapshot, reopens it, and verifies integrity plus schema metadata. It is callable before meaningful migrations and tested with non-empty data and failure paths. It does not require a user-facing backup browser or Restore controls. See [ADR 0003](adr/0003-phase1-sqlite-backup.md).
 
 The same safe primitive underlies the completed Core user-facing create-backup flow:
 

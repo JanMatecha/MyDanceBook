@@ -40,6 +40,76 @@ describe('Phase 2 schema migration', () => {
     expect(
       database
         .prepare(
+          `SELECT id, code, discipline, display_order
+           FROM dances
+           ORDER BY discipline DESC, display_order`,
+        )
+        .all(),
+    ).toEqual([
+      {
+        id: '01a01352-b78a-76fd-8ba8-f6ca29c7aca6',
+        code: 'WALTZ',
+        discipline: 'STANDARD',
+        display_order: 1,
+      },
+      {
+        id: '01a01352-b78c-772b-a92b-8201ea95a250',
+        code: 'TANGO',
+        discipline: 'STANDARD',
+        display_order: 2,
+      },
+      {
+        id: '01a01352-b78c-772b-a92b-87b63bdd5c24',
+        code: 'VIENNESE_WALTZ',
+        discipline: 'STANDARD',
+        display_order: 3,
+      },
+      {
+        id: '01a01352-b78c-772b-a92b-889ae4043f7b',
+        code: 'SLOW_FOXTROT',
+        discipline: 'STANDARD',
+        display_order: 4,
+      },
+      {
+        id: '01a01352-b78c-772b-a92b-8ffa9368ba06',
+        code: 'QUICKSTEP',
+        discipline: 'STANDARD',
+        display_order: 5,
+      },
+      {
+        id: '01a01352-b78c-772b-a92b-93cebf4158bd',
+        code: 'SAMBA',
+        discipline: 'LATIN',
+        display_order: 1,
+      },
+      {
+        id: '01a01352-b78c-772b-a92b-9584e93c0385',
+        code: 'CHA_CHA_CHA',
+        discipline: 'LATIN',
+        display_order: 2,
+      },
+      {
+        id: '01a01352-b78c-772b-a92b-9a726aad06f5',
+        code: 'RUMBA',
+        discipline: 'LATIN',
+        display_order: 3,
+      },
+      {
+        id: '01a01352-b78c-772b-a92b-9db4142d90e4',
+        code: 'PASO_DOBLE',
+        discipline: 'LATIN',
+        display_order: 4,
+      },
+      {
+        id: '01a01352-b78c-772b-a92b-a03a5c1fe34b',
+        code: 'JIVE',
+        discipline: 'LATIN',
+        display_order: 5,
+      },
+    ]);
+    expect(
+      database
+        .prepare(
           'SELECT discipline, COUNT(*) AS count FROM dances GROUP BY discipline ORDER BY discipline',
         )
         .all(),

@@ -59,6 +59,14 @@ describe('Pair onboarding API', () => {
       'JIVE',
     ]);
 
+    const missingPair = await app.inject({
+      method: 'PUT',
+      url: '/api/pair/names',
+      payload: { leaderDisplayName: 'Jan', followerDisplayName: 'Eva' },
+    });
+    expect(missingPair.statusCode).toBe(404);
+    expect(missingPair.json()).toMatchObject({ error: 'pair_not_found' });
+
     const invalid = await app.inject({
       method: 'POST',
       url: '/api/onboarding',
