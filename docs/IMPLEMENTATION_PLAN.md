@@ -21,7 +21,7 @@ Exit gate: no unresolved contradiction, explicit approval to bootstrap, and chos
 
 Outcome: one deployable TypeScript/React/SQLite application shell with safe persistence, but no placeholder dance-feature facades presented as complete.
 
-Status: Phase 1.1 bootstrap implemented. The Docker definition is present; an actual image build remains environment-dependent. Product schema and workflows still begin in Phase 2.
+Status: Phase 1.1 bootstrap implemented. The Docker definition is validated by CI. Product schema and workflows begin with the implemented Phase 2.1 slice below.
 
 Vertical slice:
 
@@ -46,12 +46,16 @@ Outcome: the pair can use MyDanceBook for real textual routines and training Not
 
 ### Slice 2.1: one Pair and navigation
 
+Status: implemented.
+
 - first-run transaction creates Pair, Leader, and Follower;
 - profile switcher includes Host presentation mode;
 - seed the ten Dance identities and render Standard/Latin/Etudes navigation;
 - persist basic settings without authentication or tenancy.
 
 ### Slice 2.2: central figure library
+
+Status: next planned slice; not implemented.
 
 - create/archive/restore Figure by Dance and name;
 - atomically create its first FigureVariant;

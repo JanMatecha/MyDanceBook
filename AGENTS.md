@@ -4,9 +4,9 @@ These instructions apply to the whole repository.
 
 ## Current repository phase
 
-- Phase 0 documentation and design are complete, and the Phase 1.1 technical foundation is implemented.
+- Phase 0 documentation and design, the Phase 1.1 technical foundation, and the Phase 2.1 one-Pair onboarding/navigation slice are implemented. The next planned slice is Phase 2.2 central Figure library.
 - `docs/IMPLEMENTATION_PLAN.md` defines the delivery order. Implement only the phase or slice the user explicitly requests; never speculatively implement later phases.
-- Accepted Phase 1 technology decisions live in `docs/adr/` and `docs/PHASE1_DECISIONS.md`. Do not reinterpret them unless implementation evidence reveals a real contradiction or safety problem.
+- Accepted Phase 1 technology and focused domain decisions live in `docs/adr/` and `docs/PHASE1_DECISIONS.md`. Do not reinterpret them unless implementation evidence reveals a real contradiction or safety problem.
 - Physical and domain decisions marked as deferred must remain deferred until their owning phase.
 - Before implementing a slice, inspect `AGENTS.md` and the relevant authoritative documents named in the documentation map.
 - `docs/CORE_MVP.md` defines the release boundary. Preserve that boundary and do not pre-build systems from `docs/FUTURE_ROADMAP.md`.

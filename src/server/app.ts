@@ -6,9 +6,11 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 import type { GetHealthQuery } from '../application/health/get-health.js';
 import { registerHealthRoute } from './routes/health.js';
+import { registerPairRoutes, type PairRouteServices } from './routes/pair.js';
 
 export interface ServerOptions {
   readonly healthQuery: GetHealthQuery;
+  readonly pairServices?: PairRouteServices;
   readonly staticRoot?: string | null;
   readonly logger?: boolean;
 }
@@ -16,6 +18,7 @@ export interface ServerOptions {
 export async function buildServer(options: ServerOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger: options.logger ?? false });
   registerHealthRoute(app, options.healthQuery);
+  if (options.pairServices) registerPairRoutes(app, options.pairServices);
 
   if (options.staticRoot) {
     await access(join(options.staticRoot, 'index.html'));
