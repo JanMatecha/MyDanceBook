@@ -10,26 +10,30 @@ state; do not append history or session notes here.
   and Follower, profile switching including read-only Host mode, editable
   display names, persistent settings, and the ten seeded Standard/Latin Dance
   identities with separate Etudes navigation.
+- Phase 2 Waltz Pilot – First Real Routine: generic persisted Figure and
+  FigureVariant creation with an automatic first empty variant; Dance-scoped
+  Routines; stable ordered RoutineFigures supporting placeholders, Figure or
+  FigureVariant references, inline Figure creation and assignment, and manual
+  Done. The Czech notebook UI supports quick Waltz routine capture and reloads
+  the same saved data after restart; no real user figures or routines are
+  seeded.
 - Safe SQLite persistence foundations, versioned migrations, backup primitive,
-  Docker/runtime checks, and the React/Vite + Fastify application shell.
+  Docker/runtime checks, and the React/Vite + Fastify application shell. The
+  first post-Pair schema migration requires a verified pre-migration backup and
+  has a non-empty Phase 2.1 Pair-database migration test.
 
 ## Not implemented yet
 
-Central Figure/FigureVariant editing, Routines and RoutineFigures, Etude
-records, Notes, structured technique, timing, geometry editors, and the later
-backup/restore and collaboration capabilities are not yet available as the
-complete textual notebook workflow.
+Figure archive/restore, multiple user-created variants and central technique
+editing, Notes, RoutineSections, Etude records, structured technique, timing,
+geometry editors, and the later backup/restore and collaboration capabilities
+are not yet available.
 
 ## Immediate objective
 
-Reach real usage as quickly as possible using Waltz as the first real-data
-pilot. The next task is the narrow vertical **Waltz Pilot – First Real Routine**:
-
-- keep the architecture generic for all dances;
-- deliver only the minimum central Figure/FigureVariant and Routine/RoutineFigure
-  workflow needed to enter a real Waltz routine;
-- enter real Waltz data through the application, not as fake seeded product data;
-- leave advanced technique, timing, geometry, and later phases out of scope until
-  real usage shows the next priority.
+Use the Waltz pilot to enter and reopen real pair data, then select the next
+narrow Phase 2 slice from observed notebook use. Keep the implemented workflow
+generic for every Dance and defer advanced technique, timing, geometry, and
+future roadmap work until it is needed.
 
 There are no known unresolved blockers at this snapshot.

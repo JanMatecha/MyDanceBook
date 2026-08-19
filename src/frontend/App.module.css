@@ -222,6 +222,301 @@
   margin-bottom: 0;
 }
 
+.notebookLayout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr) minmax(17rem, 22rem);
+  gap: var(--space-lg);
+  width: min(100%, 98rem);
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2.5rem);
+}
+
+.notebookNavigation,
+.routineWorkspace,
+.inspector,
+.capturePanel,
+.scopePanel,
+.routineFigure,
+.routineFigureSelected {
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+}
+
+.notebookNavigation,
+.routineWorkspace,
+.inspector {
+  align-self: start;
+  padding: var(--space-lg);
+}
+
+.notebookNavigation {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.danceColumn h2,
+.routineNavigation h2,
+.inspector h2,
+.scopePanel h2 {
+  margin: 0 0 var(--space-sm);
+  font-size: 1rem;
+}
+
+.danceColumn ul,
+.routineNavigation ul,
+.figureLibrary,
+.routineFigureList {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.danceColumn button,
+.routineNavigation button {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.danceColumn button:hover,
+.routineNavigation button:hover,
+.navigationActive {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.navigationActive {
+  color: var(--color-ink);
+  font-weight: 700;
+}
+
+.routineNavigation {
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.routineNavigation p,
+.muted {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.routineWorkspace h2 {
+  margin: 0 0 var(--space-lg);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 500;
+}
+
+.readOnlyNotice {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-muted);
+}
+
+.capturePanels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.capturePanel,
+.scopePanel {
+  padding: var(--space-md);
+}
+
+.capturePanel h3,
+.routineToolbar h3 {
+  margin: 0 0 var(--space-sm);
+}
+
+.capturePanel p,
+.routineToolbar p,
+.scopePanel p,
+.emptyRoutine {
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.inlineForm {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.inlineForm label,
+.routineFigureControls > label {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.inlineForm input,
+.routineFigureControls select {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.inlineForm button,
+.routineToolbar > button,
+.occurrenceActions button {
+  width: fit-content;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--color-accent);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.inlineForm button:disabled,
+.routineToolbar > button:disabled,
+.occurrenceActions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.figureLibrary {
+  margin-top: var(--space-md);
+}
+
+.figureLibrary li {
+  display: grid;
+  gap: 0.2rem;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.figureLibrary small,
+.scopePanel small,
+.occurrenceTitle small {
+  color: var(--color-muted);
+}
+
+.routineToolbar {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.routineToolbar h3 {
+  font-size: 1.15rem;
+}
+
+.routineToolbar p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.routineFigureList {
+  gap: var(--space-sm);
+  counter-reset: none;
+}
+
+.routineFigure,
+.routineFigureSelected {
+  padding: var(--space-md);
+}
+
+.routineFigureSelected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.occurrenceTitle {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 0.4rem 0.7rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.occurrenceTitle span {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  font-weight: 700;
+}
+
+.occurrenceTitle small {
+  grid-column: 2;
+}
+
+.routineFigureControls {
+  display: grid;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.occurrenceActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.occurrenceActions button {
+  border-color: var(--color-border);
+  background: transparent;
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.occurrenceActions label {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.inspector {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.scopePanel {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.scopePanel p,
+.scopePanel small {
+  margin: 0;
+}
+
+.inspector .settings {
+  padding: var(--space-md);
+}
+
 @media (max-width: 52rem) {
   .header,
   .content {
@@ -238,6 +533,14 @@
 
   .profileSwitcher {
     justify-content: flex-start;
+  }
+
+  .notebookLayout {
+    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  }
+
+  .inspector {
+    grid-column: 1 / -1;
   }
 }
 
@@ -257,5 +560,14 @@
 
   .disciplines {
     grid-template-columns: 1fr;
+  }
+
+  .notebookLayout,
+  .capturePanels {
+    grid-template-columns: 1fr;
+  }
+
+  .routineToolbar {
+    display: grid;
   }
 }

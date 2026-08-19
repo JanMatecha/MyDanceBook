@@ -1,5 +1,17 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react';
 
+import {
+  addPlaceholder,
+  assignRoutineFigure,
+  createFigure,
+  createFigureForRoutineFigure,
+  createRoutine,
+  getDanceNotebook,
+  moveRoutineFigure,
+  setRoutineFigureDone,
+  type DanceNotebook,
+  type RoutineFigure,
+} from './client/notebook';
 import {
   updatePairNames,
   type Dance,
@@ -31,6 +43,13 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
   const [profile, setProfile] = useState<ActiveProfile>(() => loadActiveProfile(state.pair));
   const [leaderDisplayName, setLeaderDisplayName] = useState(state.pair.leader.displayName);
   const [followerDisplayName, setFollowerDisplayName] = useState(state.pair.follower.displayName);
+  const [selectedDanceId, setSelectedDanceId] = useState<string | null>(
+    state.dances[0]?.id ?? null,
+  );
+  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
+  const [selectedRoutineFigureId, setSelectedRoutineFigureId] = useState<string | null>(null);
+  const [notebook, setNotebook] = useState<DanceNotebook | null>(null);
+  const [loadingNotebook, setLoadingNotebook] = useState(Boolean(state.dances[0]));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const standard = useMemo(
@@ -41,11 +60,67 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
     () => state.dances.filter((dance) => dance.discipline === 'LATIN'),
     [state.dances],
   );
+  const editable = profile.kind === 'member';
+  const selectedRoutine =
+    notebook?.routines.find((routine) => routine.id === selectedRoutineId) ?? null;
+  const selectedRoutineFigure =
+    selectedRoutine?.routineFigures.find(
+      (routineFigure) => routineFigure.id === selectedRoutineFigureId,
+    ) ?? null;
+
+  useEffect(() => {
+    if (!selectedDanceId) return;
+    const controller = new AbortController();
+    getDanceNotebook(selectedDanceId, controller.signal)
+      .then((next) => {
+        setNotebook(next);
+        setSelectedRoutineId((current) =>
+          current && next.routines.some((routine) => routine.id === current) ? current : null,
+        );
+      })
+      .catch((cause: unknown) => {
+        if (cause instanceof DOMException && cause.name === 'AbortError') return;
+        setMessage(
+          cause instanceof Error ? cause.message : 'Taneční zápisník se nepodařilo načíst.',
+        );
+      })
+      .finally(() => setLoadingNotebook(false));
+    return () => controller.abort();
+  }, [selectedDanceId]);
 
   function selectProfile(next: ActiveProfile) {
     setProfile(next);
     saveActiveProfile(next);
     setMessage(null);
+  }
+
+  function selectDance(danceId: string) {
+    setLoadingNotebook(true);
+    setMessage(null);
+    setSelectedDanceId(danceId);
+    setSelectedRoutineId(null);
+    setSelectedRoutineFigureId(null);
+  }
+
+  async function refreshNotebook(): Promise<DanceNotebook | null> {
+    if (!selectedDanceId) return null;
+    const next = await getDanceNotebook(selectedDanceId);
+    setNotebook(next);
+    return next;
+  }
+
+  async function runChange(change: () => Promise<void>, successMessage?: string) {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await change();
+      await refreshNotebook();
+      if (successMessage) setMessage(successMessage);
+    } catch (cause: unknown) {
+      setMessage(cause instanceof Error ? cause.message : 'Změnu se nepodařilo uložit.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function saveNames(event: FormEvent<HTMLFormElement>) {
@@ -60,6 +135,40 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
       setMessage('Jména jsou uložená.');
     } catch (cause: unknown) {
       setMessage(cause instanceof Error ? cause.message : 'Jména se nepodařilo uložit.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitFigure(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedDanceId || !editable) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const name = String(form.get('figureName') ?? '');
+    await runChange(async () => {
+      await createFigure(selectedDanceId, name);
+      formElement.reset();
+    }, 'Figura a její výchozí varianta jsou uložené.');
+  }
+
+  async function submitRoutine(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedDanceId || !editable) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const name = String(form.get('routineName') ?? '');
+    setSaving(true);
+    setMessage(null);
+    try {
+      const routine = await createRoutine(selectedDanceId, name);
+      formElement.reset();
+      setSelectedRoutineId(routine.id);
+      setSelectedRoutineFigureId(null);
+      await refreshNotebook();
+      setMessage('Sestava je připravená k zápisu.');
+    } catch (cause: unknown) {
+      setMessage(cause instanceof Error ? cause.message : 'Sestavu se nepodařilo vytvořit.');
     } finally {
       setSaving(false);
     }
@@ -104,49 +213,389 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
         </div>
       </header>
 
-      <main className={styles.content}>
-        <section aria-labelledby="dance-navigation-title">
-          <p className={styles.eyebrow}>Taneční knihovna</p>
-          <h2 id="dance-navigation-title">Standardní a latinskoamerické tance</h2>
-          <div className={styles.disciplines}>
-            <DanceColumn title="Standardní tance" dances={standard} />
-            <DanceColumn title="Latinskoamerické tance" dances={latin} />
+      <main className={styles.notebookLayout}>
+        <nav className={styles.notebookNavigation} aria-label="Tance a sestavy">
+          <p className={styles.eyebrow}>Tance</p>
+          <DanceNavigation
+            title="Standardní tance"
+            dances={standard}
+            selectedDanceId={selectedDanceId}
+            onSelect={selectDance}
+          />
+          <DanceNavigation
+            title="Latinskoamerické tance"
+            dances={latin}
+            selectedDanceId={selectedDanceId}
+            onSelect={selectDance}
+          />
+          <div className={styles.etudes}>
+            <span>Etudy</span>
+            <small>samostatný trénink</small>
           </div>
+          {notebook && (
+            <section
+              className={styles.routineNavigation}
+              aria-labelledby="routine-navigation-title"
+            >
+              <h2 id="routine-navigation-title">Sestavy</h2>
+              {notebook.routines.length === 0 ? (
+                <p>Zatím žádná sestava.</p>
+              ) : (
+                <ul>
+                  {notebook.routines.map((routine) => (
+                    <li key={routine.id}>
+                      <button
+                        type="button"
+                        className={
+                          routine.id === selectedRoutineId ? styles.navigationActive : undefined
+                        }
+                        onClick={() => {
+                          setSelectedRoutineId(routine.id);
+                          setSelectedRoutineFigureId(null);
+                        }}
+                      >
+                        {routine.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+        </nav>
+
+        <section className={styles.routineWorkspace} aria-live="polite">
+          {loadingNotebook && <p>Načítám taneční zápisník…</p>}
+          {!loadingNotebook && notebook && (
+            <>
+              <p className={styles.eyebrow}>{danceLabels[notebook.dance.code as DanceCode]}</p>
+              <h2>{selectedRoutine ? selectedRoutine.name : 'Zápis tanečních figur'}</h2>
+              {!editable && (
+                <p className={styles.readOnlyNotice}>Host může zápisník pouze prohlížet.</p>
+              )}
+
+              {!selectedRoutine && (
+                <div className={styles.capturePanels}>
+                  <section className={styles.capturePanel}>
+                    <h3>Nová figura</h3>
+                    <p>Stačí název. Výchozí varianta vznikne automaticky.</p>
+                    {editable && (
+                      <form
+                        className={styles.inlineForm}
+                        onSubmit={(event) => void submitFigure(event)}
+                      >
+                        <label>
+                          Název figury
+                          <input name="figureName" required maxLength={200} />
+                        </label>
+                        <button type="submit" disabled={saving}>
+                          Vytvořit figuru
+                        </button>
+                      </form>
+                    )}
+                    <FigureLibrary figures={notebook.figures} />
+                  </section>
+                  <section className={styles.capturePanel}>
+                    <h3>Nová sestava</h3>
+                    <p>Stačí název. Figury můžete doplnit hned potom.</p>
+                    {editable && (
+                      <form
+                        className={styles.inlineForm}
+                        onSubmit={(event) => void submitRoutine(event)}
+                      >
+                        <label>
+                          Název sestavy
+                          <input name="routineName" required maxLength={200} />
+                        </label>
+                        <button type="submit" disabled={saving}>
+                          Vytvořit sestavu
+                        </button>
+                      </form>
+                    )}
+                  </section>
+                </div>
+              )}
+
+              {selectedRoutine && (
+                <section aria-labelledby="routine-figures-title">
+                  <div className={styles.routineToolbar}>
+                    <div>
+                      <h3 id="routine-figures-title">Pořadí figur</h3>
+                      <p>Čísla se odvozují z pořadí; každý výskyt má trvalou identitu.</p>
+                    </div>
+                    {editable && (
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          void runChange(async () => {
+                            const added = await addPlaceholder(selectedRoutine.id);
+                            setSelectedRoutineFigureId(added.id);
+                          }, 'Přidán prázdný výskyt figury.')
+                        }
+                      >
+                        + Figura
+                      </button>
+                    )}
+                  </div>
+                  {selectedRoutine.routineFigures.length === 0 ? (
+                    <p className={styles.emptyRoutine}>
+                      Začněte tlačítkem + Figura. Můžete přidat jen prázdné místo.
+                    </p>
+                  ) : (
+                    <ol className={styles.routineFigureList}>
+                      {selectedRoutine.routineFigures.map((routineFigure, index) => (
+                        <RoutineFigureRow
+                          key={routineFigure.id}
+                          routineFigure={routineFigure}
+                          index={index}
+                          total={selectedRoutine.routineFigures.length}
+                          figures={notebook.figures}
+                          editable={editable}
+                          saving={saving}
+                          selected={routineFigure.id === selectedRoutineFigureId}
+                          onSelect={() => setSelectedRoutineFigureId(routineFigure.id)}
+                          onAssign={(figureId, figureVariantId) =>
+                            runChange(
+                              () =>
+                                assignRoutineFigure(routineFigure.id, figureId, figureVariantId),
+                              'Figura je přiřazená k výskytu.',
+                            )
+                          }
+                          onCreateInline={(name) =>
+                            runChange(
+                              () => createFigureForRoutineFigure(routineFigure.id, name),
+                              'Nová figura a její výchozí varianta jsou přiřazené.',
+                            )
+                          }
+                          onMoveUp={() =>
+                            runChange(
+                              () =>
+                                moveRoutineFigure(
+                                  routineFigure.id,
+                                  selectedRoutine.routineFigures[index - 1]?.id ?? routineFigure.id,
+                                ),
+                              'Pořadí výskytů je uložené.',
+                            )
+                          }
+                          onMoveDown={() =>
+                            runChange(
+                              () =>
+                                moveRoutineFigure(
+                                  routineFigure.id,
+                                  selectedRoutine.routineFigures[index + 2]?.id ?? null,
+                                ),
+                              'Pořadí výskytů je uložené.',
+                            )
+                          }
+                          onDone={(done) =>
+                            runChange(
+                              () =>
+                                setRoutineFigureDone(routineFigure.id, done).then(() => undefined),
+                              done
+                                ? 'Výskyt je označený jako hotový.'
+                                : 'Výskyt už není označený jako hotový.',
+                            )
+                          }
+                        />
+                      ))}
+                    </ol>
+                  )}
+                </section>
+              )}
+            </>
+          )}
         </section>
 
-        <aside className={styles.settings} aria-labelledby="pair-settings-title">
-          <h2 id="pair-settings-title">Nastavení páru</h2>
-          {profile.kind === 'host' ? (
-            <p>Host může sdílený zápisník prohlížet, ale nemění jeho data.</p>
-          ) : (
-            <form className={styles.form} onSubmit={(event) => void saveNames(event)}>
-              <label>
-                Jméno leadera
-                <input
-                  required
-                  maxLength={100}
-                  value={leaderDisplayName}
-                  onChange={(event) => setLeaderDisplayName(event.target.value)}
-                />
-              </label>
-              <label>
-                Jméno followera
-                <input
-                  required
-                  maxLength={100}
-                  value={followerDisplayName}
-                  onChange={(event) => setFollowerDisplayName(event.target.value)}
-                />
-              </label>
-              <button type="submit" disabled={saving}>
-                {saving ? 'Ukládám…' : 'Uložit jména'}
-              </button>
-            </form>
-          )}
+        <aside className={styles.inspector} aria-label="Podrobnosti a nastavení">
+          <section className={styles.scopePanel}>
+            <h2>Sdílená definice</h2>
+            {selectedRoutineFigure?.figureName ? (
+              <>
+                <p>Změny této figury se později projeví všude, kde je použitá.</p>
+                <strong>{selectedRoutineFigure.figureName}</strong>
+                <small>
+                  {selectedRoutineFigure.figureVariantName ?? 'Varianta zatím není vybraná.'}
+                </small>
+              </>
+            ) : (
+              <p>Vyberte výskyt a přiřaďte mu figuru nebo vytvořte novou přímo v sestavě.</p>
+            )}
+          </section>
+          <section className={styles.scopePanel}>
+            <h2>Tento výskyt v sestavě</h2>
+            {selectedRoutineFigure ? (
+              <p>
+                Číslo {selectedRoutineFigure.position} ·{' '}
+                {selectedRoutineFigure.done ? 'hotovo' : 'ještě nehotovo'}
+              </p>
+            ) : (
+              <p>Vyberte řádek sestavy pro místní kontext.</p>
+            )}
+          </section>
+          <section className={styles.settings} aria-labelledby="pair-settings-title">
+            <h2 id="pair-settings-title">Nastavení páru</h2>
+            {editable ? (
+              <form className={styles.form} onSubmit={(event) => void saveNames(event)}>
+                <label>
+                  Jméno leadera
+                  <input
+                    required
+                    maxLength={100}
+                    value={leaderDisplayName}
+                    onChange={(event) => setLeaderDisplayName(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Jméno followera
+                  <input
+                    required
+                    maxLength={100}
+                    value={followerDisplayName}
+                    onChange={(event) => setFollowerDisplayName(event.target.value)}
+                  />
+                </label>
+                <button type="submit" disabled={saving}>
+                  {saving ? 'Ukládám…' : 'Uložit jména'}
+                </button>
+              </form>
+            ) : (
+              <p>Host může sdílený zápisník prohlížet, ale nemění jeho data.</p>
+            )}
+          </section>
           {message && <p className={styles.message}>{message}</p>}
         </aside>
       </main>
     </div>
+  );
+}
+
+function RoutineFigureRow({
+  routineFigure,
+  index,
+  total,
+  figures,
+  editable,
+  saving,
+  selected,
+  onSelect,
+  onAssign,
+  onCreateInline,
+  onMoveUp,
+  onMoveDown,
+  onDone,
+}: {
+  readonly routineFigure: RoutineFigure;
+  readonly index: number;
+  readonly total: number;
+  readonly figures: DanceNotebook['figures'];
+  readonly editable: boolean;
+  readonly saving: boolean;
+  readonly selected: boolean;
+  readonly onSelect: () => void;
+  readonly onAssign: (figureId: string, figureVariantId: string | null) => Promise<void>;
+  readonly onCreateInline: (name: string) => Promise<void>;
+  readonly onMoveUp: () => Promise<void>;
+  readonly onMoveDown: () => Promise<void>;
+  readonly onDone: (done: boolean) => Promise<void>;
+}) {
+  function selectAssignment(event: ChangeEvent<HTMLSelectElement>) {
+    const [figureId, figureVariantId] = event.target.value.split(':');
+    if (!figureId) return;
+    void onAssign(figureId, figureVariantId || null);
+  }
+
+  async function submitInline(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    await onCreateInline(String(form.get('inlineFigureName') ?? ''));
+    formElement.reset();
+  }
+
+  const selectedValue = routineFigure.figureId
+    ? `${routineFigure.figureId}:${routineFigure.figureVariantId ?? ''}`
+    : '';
+  return (
+    <li className={selected ? styles.routineFigureSelected : styles.routineFigure}>
+      <button type="button" className={styles.occurrenceTitle} onClick={onSelect}>
+        <span>{routineFigure.position}</span>
+        <strong>
+          {routineFigure.figureName ?? `Figura ${routineFigure.position} — nevybraná`}
+        </strong>
+        {routineFigure.figureVariantName && <small>{routineFigure.figureVariantName}</small>}
+      </button>
+      {editable && (
+        <div className={styles.routineFigureControls}>
+          <label>
+            Existující figura nebo varianta
+            <select value={selectedValue} disabled={saving} onChange={selectAssignment}>
+              <option value="">Vyberte…</option>
+              {figures.map((figure) => (
+                <optgroup key={figure.id} label={figure.name}>
+                  <option value={`${figure.id}:`}>Pouze figura</option>
+                  {figure.variants.map((variant) => (
+                    <option key={variant.id} value={`${figure.id}:${variant.id}`}>
+                      {variant.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <form className={styles.inlineForm} onSubmit={(event) => void submitInline(event)}>
+            <label>
+              Nová figura
+              <input
+                name="inlineFigureName"
+                required
+                maxLength={200}
+                placeholder="Název nové figury"
+              />
+            </label>
+            <button type="submit" disabled={saving}>
+              Vytvořit a přiřadit
+            </button>
+          </form>
+          <div className={styles.occurrenceActions}>
+            <button type="button" disabled={saving || index === 0} onClick={() => void onMoveUp()}>
+              Nahoru
+            </button>
+            <button
+              type="button"
+              disabled={saving || index === total - 1}
+              onClick={() => void onMoveDown()}
+            >
+              Dolů
+            </button>
+            <label>
+              <input
+                type="checkbox"
+                checked={routineFigure.done}
+                disabled={saving}
+                onChange={(event) => void onDone(event.target.checked)}
+              />{' '}
+              Hotovo
+            </label>
+          </div>
+        </div>
+      )}
+      {!editable && <p>{routineFigure.done ? 'Hotovo' : 'Ještě nehotovo'}</p>}
+    </li>
+  );
+}
+
+function FigureLibrary({ figures }: { readonly figures: DanceNotebook['figures'] }) {
+  if (figures.length === 0) return <p className={styles.muted}>Zatím žádné figury.</p>;
+  return (
+    <ul className={styles.figureLibrary}>
+      {figures.map((figure) => (
+        <li key={figure.id}>
+          <strong>{figure.name}</strong>
+          <small>{figure.variants.map((variant) => variant.name).join(', ')}</small>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -171,25 +620,33 @@ function ProfileButton({
   );
 }
 
-function DanceColumn({
+function DanceNavigation({
   title,
   dances,
+  selectedDanceId,
+  onSelect,
 }: {
   readonly title: string;
   readonly dances: readonly Dance[];
+  readonly selectedDanceId: string | null;
+  readonly onSelect: (danceId: string) => void;
 }) {
   return (
     <section className={styles.danceColumn}>
-      <h3>{title}</h3>
-      <ol>
+      <h2>{title}</h2>
+      <ul>
         {dances.map((dance) => (
-          <li key={dance.id}>{danceLabels[dance.code]}</li>
+          <li key={dance.id}>
+            <button
+              type="button"
+              className={dance.id === selectedDanceId ? styles.navigationActive : undefined}
+              onClick={() => onSelect(dance.id)}
+            >
+              {danceLabels[dance.code]}
+            </button>
+          </li>
         ))}
-      </ol>
-      <div className={styles.etudes}>
-        <span>Etudy</span>
-        <small>samostatný trénink</small>
-      </div>
+      </ul>
     </section>
   );
 }
