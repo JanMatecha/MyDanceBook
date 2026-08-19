@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Pair } from '../../src/frontend/api/app-state.js';
+import type { Pair } from '../../src/frontend/client/app-state.js';
 import {
   loadActiveProfile,
   saveActiveProfile,

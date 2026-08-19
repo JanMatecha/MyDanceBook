@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { getAppState, type AppState, type ReadyAppState } from './api/app-state';
+import { getAppState, type AppState, type ReadyAppState } from './client/app-state';
 import styles from './App.module.css';
 import { NotebookShell } from './NotebookShell';
 import { Onboarding } from './Onboarding';

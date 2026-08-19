@@ -29,6 +29,9 @@ npm install
 npm run dev
 ```
 
+On Windows PowerShell systems where the local execution policy blocks `npm.ps1`, use
+`npm.cmd run dev`; changing the system-wide execution policy is not required.
+
 The Vite UI is available at `http://localhost:5173` and proxies `/api` to Fastify at `http://localhost:3000`. Development defaults to `.data/development` under the repository. To select another local data root:
 
 ```powershell

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react';
 
-import type { ReadyAppState } from './api/app-state';
-import { initializePair } from './api/app-state';
+import type { ReadyAppState } from './client/app-state';
+import { initializePair } from './client/app-state';
 import styles from './App.module.css';
 
 export interface OnboardingProps {
