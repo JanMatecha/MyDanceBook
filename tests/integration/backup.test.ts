@@ -23,7 +23,7 @@ describe('verified SQLite backup', () => {
     const root = await createTemporaryDirectory('backup-success');
     temporaryDirectories.push(root);
     const database = openDatabase(join(root, 'source.sqlite'));
-    await runMigrations({ database, migrationsDirectory: resolve('migrations') });
+    await migrateForBackupTest(database, root);
     database.exec('CREATE TABLE backup_fixture (id TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT');
     database
       .prepare('INSERT INTO backup_fixture (id, value) VALUES (?, ?)')
@@ -35,7 +35,7 @@ describe('verified SQLite backup', () => {
       reason: 'integration-test',
     });
 
-    expect(result.migrationVersion).toBe(2);
+    expect(result.migrationVersion).toBe(3);
     const backup = new Database(result.path, { readonly: true, fileMustExist: true });
     expect(
       backup.prepare('SELECT value FROM backup_fixture WHERE id = ?').get('fixture-1'),
@@ -55,7 +55,7 @@ describe('verified SQLite backup', () => {
     temporaryDirectories.push(root);
     const backupDirectory = join(root, 'backups');
     const database = openDatabase(join(root, 'source.sqlite'));
-    await runMigrations({ database, migrationsDirectory: resolve('migrations') });
+    await migrateForBackupTest(database, root);
     database.close();
 
     await expect(
@@ -64,3 +64,17 @@ describe('verified SQLite backup', () => {
     expect(await readdir(backupDirectory)).toEqual([]);
   });
 });
+
+async function migrateForBackupTest(database: ReturnType<typeof openDatabase>, root: string) {
+  return runMigrations({
+    database,
+    migrationsDirectory: resolve('migrations'),
+    beforeRiskyMigration: async ({ version, name }) => {
+      await createVerifiedBackup({
+        database,
+        backupDirectory: join(root, 'pre-migration-backups'),
+        reason: `before-migration-${version}-${name}`,
+      });
+    },
+  });
+}

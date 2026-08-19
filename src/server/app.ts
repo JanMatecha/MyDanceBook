@@ -6,11 +6,13 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 import type { GetHealthQuery } from '../application/health/get-health.js';
 import { registerHealthRoute } from './routes/health.js';
+import { registerNotebookRoutes, type NotebookRouteServices } from './routes/notebook.js';
 import { registerPairRoutes, type PairRouteServices } from './routes/pair.js';
 
 export interface ServerOptions {
   readonly healthQuery: GetHealthQuery;
   readonly pairServices?: PairRouteServices;
+  readonly notebookServices?: NotebookRouteServices;
   readonly staticRoot?: string | null;
   readonly logger?: boolean;
 }
@@ -19,6 +21,7 @@ export async function buildServer(options: ServerOptions): Promise<FastifyInstan
   const app = Fastify({ logger: options.logger ?? false });
   registerHealthRoute(app, options.healthQuery);
   if (options.pairServices) registerPairRoutes(app, options.pairServices);
+  if (options.notebookServices) registerNotebookRoutes(app, options.notebookServices);
 
   if (options.staticRoot) {
     await access(join(options.staticRoot, 'index.html'));

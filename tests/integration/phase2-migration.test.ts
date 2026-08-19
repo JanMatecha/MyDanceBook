@@ -1,10 +1,14 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
+import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { InitializePairCommand } from '../../src/application/pair/pair-use-cases.js';
+import { createVerifiedBackup } from '../../src/persistence/sqlite/backup.js';
 import { openDatabase } from '../../src/persistence/sqlite/database.js';
 import { runMigrations } from '../../src/persistence/sqlite/migrations.js';
+import { SqlitePairRepository } from '../../src/persistence/sqlite/pair-repository.js';
 import {
   createTemporaryDirectory,
   removeTemporaryDirectory,
@@ -123,6 +127,71 @@ describe('Phase 2 schema migration', () => {
     expect(database.prepare('SELECT COUNT(*) AS count FROM dances').get()).toEqual({ count: 10 });
     expect(database.pragma('foreign_key_check')).toEqual([]);
     expect(database.pragma('integrity_check', { simple: true })).toBe('ok');
+    database.close();
+  });
+
+  it('backs up and upgrades a non-empty Phase 2.1 Pair database without changing Pair or Dance identities', async () => {
+    const root = await createTemporaryDirectory('phase21-to-routine');
+    temporaryDirectories.push(root);
+    const migrationsDirectory = join(root, 'migrations');
+    const backupsDirectory = join(root, 'backups');
+    await mkdir(migrationsDirectory);
+    await copyMigration('0001_initialize_schema_history.sql', migrationsDirectory);
+    await copyMigration('0002_pair_and_dance_catalogue.sql', migrationsDirectory);
+
+    const database = openDatabase(join(root, 'phase21.sqlite'));
+    await runMigrations({ database, migrationsDirectory });
+    const pair = new InitializePairCommand(new SqlitePairRepository(database)).execute({
+      leaderDisplayName: 'Jan',
+      followerDisplayName: 'Eva',
+    });
+    await copyMigration('0003_figures_and_routines.sql', migrationsDirectory);
+
+    let backupPath: string | undefined;
+    const result = await runMigrations({
+      database,
+      migrationsDirectory,
+      beforeRiskyMigration: async ({ version, name }) => {
+        const backup = await createVerifiedBackup({
+          database,
+          backupDirectory: backupsDirectory,
+          reason: `before-migration-${version}-${name}`,
+        });
+        backupPath = backup.path;
+      },
+    });
+
+    expect(result.appliedVersions).toEqual([3]);
+    expect(database.prepare('SELECT id FROM pairs').get()).toEqual({ id: pair.id });
+    expect(
+      database
+        .prepare('SELECT display_name FROM pair_members WHERE pair_id = ? ORDER BY role')
+        .all(pair.id),
+    ).toEqual([{ display_name: 'Eva' }, { display_name: 'Jan' }]);
+    expect(database.prepare('SELECT COUNT(*) AS count FROM dances').get()).toEqual({ count: 10 });
+    expect(
+      database
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('figures', 'figure_variants', 'routines', 'routine_figures') ORDER BY name",
+        )
+        .all(),
+    ).toEqual([
+      { name: 'figure_variants' },
+      { name: 'figures' },
+      { name: 'routine_figures' },
+      { name: 'routines' },
+    ]);
+    expect(database.pragma('foreign_key_check')).toEqual([]);
+    expect(database.pragma('integrity_check', { simple: true })).toBe('ok');
+
+    expect(backupPath).toBeDefined();
+    const backup = new Database(backupPath!, { readonly: true, fileMustExist: true });
+    expect(backup.prepare('SELECT id FROM pairs').get()).toEqual({ id: pair.id });
+    expect(backup.prepare('SELECT COUNT(*) AS count FROM dances').get()).toEqual({ count: 10 });
+    expect(backup.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({
+      version: 2,
+    });
+    backup.close();
     database.close();
   });
 });
