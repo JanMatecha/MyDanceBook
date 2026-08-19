@@ -17,6 +17,11 @@ state; do not append history or session notes here.
   Done. The Czech notebook UI supports quick Waltz routine capture and reloads
   the same saved data after restart; no real user figures or routines are
   seeded.
+- Waltz Pilot usability pass: RoutineFigures render as compact ordered rows
+  with one selected occurrence expanded for editing, while `+ Figura` creates
+  and opens a new placeholder. The central Figure name can be renamed directly
+  from the clearly scoped shared-definition area; the persisted central name is
+  immediately shown by every referencing RoutineFigure.
 - Safe SQLite persistence foundations, versioned migrations, backup primitive,
   Docker/runtime checks, and the React/Vite + Fastify application shell. The
   first post-Pair schema migration requires a verified pre-migration backup and
@@ -31,9 +36,10 @@ are not yet available.
 
 ## Immediate objective
 
-Use the Waltz pilot to enter and reopen real pair data, then select the next
-narrow Phase 2 slice from observed notebook use. Keep the implemented workflow
-generic for every Dance and defer advanced technique, timing, geometry, and
-future roadmap work until it is needed.
+Continue entering and reopening real Waltz pair data with the compact routine
+overview and central Figure naming flow. Select the next narrow Phase 2 slice
+from observed notebook use, keeping the workflow generic for every Dance and
+deferring advanced technique, timing, geometry, and future roadmap work until
+it is needed.
 
 There are no known unresolved blockers at this snapshot.

@@ -13,4 +13,5 @@ export interface NewFigureRecord {
 export interface FigureRepository {
   listByDance(danceId: EntityId): readonly FigureWithVariants[];
   create(record: NewFigureRecord): FigureWithVariants;
+  rename(figureId: EntityId, name: string, updatedAt: string): FigureWithVariants | null;
 }

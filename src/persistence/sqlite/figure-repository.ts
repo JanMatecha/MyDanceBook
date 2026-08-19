@@ -95,6 +95,32 @@ export class SqliteFigureRepository implements FigureRepository {
       ],
     };
   }
+
+  public rename(figureId: EntityId, name: string, updatedAt: string): FigureWithVariants | null {
+    const figure = this.database
+      .prepare(
+        `SELECT id, dance_id, name, created_at, updated_at
+         FROM figures WHERE id = ?`,
+      )
+      .get(figureId) as FigureRow | undefined;
+    if (!figure) return null;
+
+    this.database
+      .prepare('UPDATE figures SET name = ?, updated_at = ? WHERE id = ?')
+      .run(name, updatedAt, figureId);
+    const variants = this.database
+      .prepare(
+        `SELECT id, figure_id, name, created_at, updated_at
+         FROM figure_variants WHERE figure_id = ?
+         ORDER BY created_at, id`,
+      )
+      .all(figureId) as FigureVariantRow[];
+
+    return {
+      ...mapFigure({ ...figure, name, updated_at: updatedAt }),
+      variants: variants.map(mapVariant),
+    };
+  }
 }
 
 function mapFigure(row: FigureRow): Omit<FigureWithVariants, 'variants'> {
