@@ -11,7 +11,7 @@ The product is guided by two priorities:
 
 Phase 0 domain and architecture refinement and the Phase 1.1 technical foundation are complete. Phase 2.1 adds the first real product slice: first-run creation of one Pair with Leader and Follower, persistent profile selection including read-only Host presentation mode, editable display names, and navigation over five seeded Standard and five seeded Latin dance identities with separate Etudes entries.
 
-This is not yet the complete Phase 2 notebook. Figures, Routines, Etude records, Notes, timing and geometry editors are not implemented and no placeholder tables or screens claim otherwise.
+This is not yet the complete Phase 2 notebook. Figures, Routines, Etude records, Notes, timing and geometry editors are not implemented and no placeholder tables or screens claim otherwise. The immediate validation path is the narrow Waltz Pilot – First Real Routine, using Waltz as the first real-data scenario while keeping the architecture generic.
 
 The accepted implementation baseline is Node.js 24 LTS, strict TypeScript/ESM, React and Vite, Fastify, Zod at transport boundaries, and explicit SQLite through `better-sqlite3`. See [Phase 1 decisions](docs/PHASE1_DECISIONS.md) and [ADR 0010](docs/adr/0010-phase1-technical-baseline.md).
 
@@ -113,6 +113,9 @@ Core MVP intentionally excludes authentication, multiple pairs, clubs, Git-based
 | [Phase 1 decisions](docs/PHASE1_DECISIONS.md)          | Accepted Phase 1 baseline and deliberately deferred physical-schema choices            |
 | [Future roadmap](docs/FUTURE_ROADMAP.md)               | Deferred increments that must not contaminate Core MVP                                 |
 | [Implementation plan](docs/IMPLEMENTATION_PLAN.md)     | Vertical-slice delivery order and phase gates                                          |
+| [Project status](docs/PROJECT_STATUS.md)               | Compact current-state snapshot and immediate objective                                 |
+| [Codex workflow](docs/CODEX_WORKFLOW.md)               | Efficient session and repository-memory practices                                      |
+| [Codex task template](docs/CODEX_TASK_TEMPLATE.md)     | Compact copy/paste template for scoped development tasks                               |
 | [Agent instructions](AGENTS.md)                        | Rules for future AI-assisted work in this repository                                   |
 
 When documents overlap, the document named as the authority in this table owns the detailed decision; other documents should link to it rather than redefine it.
