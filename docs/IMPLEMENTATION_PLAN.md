@@ -44,6 +44,13 @@ Exit gate: a clean deployment persists a deliberately small schema fixture acros
 
 Outcome: the pair can use MyDanceBook for real textual routines and training Notes.
 
+Immediate validation path: **Waltz Pilot – First Real Routine**. This is a
+narrow vertical slice combining only the minimum central Figure/FigureVariant
+and Routine/RoutineFigure capabilities needed to enter a real Waltz routine.
+The architecture remains generic, Waltz data is entered through the
+application rather than seeded as fake product data, and later technique,
+timing, geometry, and other phases remain out of scope.
+
 ### Slice 2.1: one Pair and navigation
 
 Status: implemented.
@@ -55,7 +62,9 @@ Status: implemented.
 
 ### Slice 2.2: central figure library
 
-Status: next planned slice; not implemented.
+Status: not implemented. The immediate Waltz pilot uses only the minimum needed
+subset together with the minimum Routine/RoutineFigure capability from Slice
+2.3; broad Figure-library work remains staged.
 
 - create/archive/restore Figure by Dance and name;
 - atomically create its first FigureVariant;
