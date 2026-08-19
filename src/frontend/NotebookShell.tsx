@@ -556,14 +556,14 @@ function RoutineFigureRow({
         aria-expanded={selected}
         onClick={onSelect}
       >
-        <span>{routineFigure.position}</span>
+        <span className={styles.occurrenceNumber}>{routineFigure.position}</span>
         <span className={styles.occurrenceDetails}>
           <strong>
             {routineFigure.figureName ?? `Figura ${routineFigure.position} — nevybraná`}
           </strong>
           {routineFigure.figureVariantName && <small>{routineFigure.figureVariantName}</small>}
         </span>
-        <span className={styles.doneState}>{routineFigure.done ? 'Hotovo' : 'Ještě nehotovo'}</span>
+        <span className={styles.doneState}>{routineFigure.done ? 'Hotovo' : 'Rozpracováno'}</span>
       </button>
       {editable && selected && (
         <div className={styles.routineFigureControls}>
