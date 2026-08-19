@@ -457,7 +457,7 @@
   text-align: left;
 }
 
-.occurrenceTitle span {
+.occurrenceNumber {
   display: grid;
   width: 1.7rem;
   height: 1.7rem;
@@ -475,12 +475,13 @@
 
 .occurrenceDetails strong,
 .occurrenceDetails small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .doneState {
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
   padding: 0.25rem 0.5rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
@@ -588,5 +589,15 @@
 
   .routineToolbar {
     display: grid;
+  }
+
+  .occurrenceTitle {
+    grid-template-columns: 1.7rem minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .doneState {
+    grid-column: 2;
+    justify-self: start;
   }
 }
