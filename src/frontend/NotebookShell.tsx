@@ -459,7 +459,7 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
             {selectedRoutineFigure ? (
               <p>
                 Číslo {selectedRoutineFigure.position} ·{' '}
-                {selectedRoutineFigure.done ? 'hotovo' : 'ještě nehotovo'}
+                {selectedRoutineFigure.done ? 'hotovo' : 'rozpracováno'}
               </p>
             ) : (
               <p>Vyberte řádek sestavy pro místní kontext.</p>
