@@ -1,17 +1,28 @@
 import { spawn } from 'node:child_process';
 
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const children = [
-  spawn(npmCommand, ['run', 'dev:server'], { stdio: 'inherit' }),
-  spawn(npmCommand, ['run', 'dev:frontend'], { stdio: 'inherit' }),
-];
+import { createNpmScriptCommand } from './npm-script-command.mjs';
+
+function startNpmScript(script) {
+  const command = createNpmScriptCommand({
+    script,
+    platform: process.platform,
+    comSpec: process.env.ComSpec,
+  });
+  return spawn(command.executable, command.args, { stdio: 'inherit' });
+}
+
+const children = [startNpmScript('dev:server'), startNpmScript('dev:frontend')];
 
 let stopping = false;
 
 function stop(exitCode = 0) {
   if (stopping) return;
   stopping = true;
-  for (const child of children) child.kill();
+
+  for (const child of children) {
+    child.kill();
+  }
+
   process.exitCode = exitCode;
 }
 

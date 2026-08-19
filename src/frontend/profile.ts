@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { Pair } from './api/app-state';
+import type { Pair } from './client/app-state';
 
 const storageKey = 'mydancebook.activeProfile';
 const activeProfileSchema = z.discriminatedUnion('kind', [

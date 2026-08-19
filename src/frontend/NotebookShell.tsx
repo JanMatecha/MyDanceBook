@@ -1,6 +1,11 @@
 import { type FormEvent, useMemo, useState } from 'react';
 
-import { updatePairNames, type Dance, type DanceCode, type ReadyAppState } from './api/app-state';
+import {
+  updatePairNames,
+  type Dance,
+  type DanceCode,
+  type ReadyAppState,
+} from './client/app-state';
 import styles from './App.module.css';
 import { loadActiveProfile, saveActiveProfile, type ActiveProfile } from './profile';
 
