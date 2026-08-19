@@ -6,11 +6,16 @@ import {
   createFigure,
   createFigureForRoutineFigure,
   createRoutine,
+  createRoutineSection,
   getDanceNotebook,
   moveRoutineFigure,
+  moveRoutineFigureToSection,
+  moveRoutineSection,
   renameFigure,
+  renameRoutineSection,
   setRoutineFigureDone,
   type DanceNotebook,
+  type RoutineSection,
   type RoutineFigure,
 } from './client/notebook';
 import {
@@ -21,6 +26,7 @@ import {
 } from './client/app-state';
 import styles from './App.module.css';
 import { loadActiveProfile, saveActiveProfile, type ActiveProfile } from './profile';
+import { flattenRoutineFigures } from './routine-hierarchy';
 
 const danceLabels: Record<DanceCode, string> = {
   WALTZ: 'Waltz',
@@ -64,10 +70,15 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
   const editable = profile.kind === 'member';
   const selectedRoutine =
     notebook?.routines.find((routine) => routine.id === selectedRoutineId) ?? null;
-  const selectedRoutineFigure =
-    selectedRoutine?.routineFigures.find(
-      (routineFigure) => routineFigure.id === selectedRoutineFigureId,
+  const flattenedRoutineFigures = useMemo(
+    () => (selectedRoutine ? flattenRoutineFigures(selectedRoutine) : []),
+    [selectedRoutine],
+  );
+  const selectedRoutineFigureEntry =
+    flattenedRoutineFigures.find(
+      ({ routineFigure }) => routineFigure.id === selectedRoutineFigureId,
     ) ?? null;
+  const selectedRoutineFigure = selectedRoutineFigureEntry?.routineFigure ?? null;
 
   useEffect(() => {
     if (!selectedDanceId) return;
@@ -332,86 +343,129 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
                 <section aria-labelledby="routine-figures-title">
                   <div className={styles.routineToolbar}>
                     <div>
-                      <h3 id="routine-figures-title">Pořadí figur</h3>
-                      <p>Čísla se odvozují z pořadí; každý výskyt má trvalou identitu.</p>
+                      <h3 id="routine-figures-title">Části sestavy a pořadí figur</h3>
+                      <p>
+                        Čísla se odvozují z pořadí částí a figur; každý výskyt má trvalou identitu.
+                      </p>
                     </div>
-                    {editable && (
-                      <button
-                        type="button"
-                        disabled={saving}
-                        onClick={() =>
-                          void runChange(async () => {
-                            const added = await addPlaceholder(selectedRoutine.id);
+                  </div>
+                  <div className={styles.routineSections}>
+                    {selectedRoutine.sections.map((routineSection, sectionIndex) => (
+                      <RoutineSectionBlock
+                        key={routineSection.id}
+                        routineSection={routineSection}
+                        sectionIndex={sectionIndex}
+                        totalSections={selectedRoutine.sections.length}
+                        allSections={selectedRoutine.sections}
+                        figures={notebook.figures}
+                        editable={editable}
+                        saving={saving}
+                        selectedRoutineFigureId={selectedRoutineFigureId}
+                        displayPositionById={
+                          new Map(
+                            flattenedRoutineFigures.map(({ routineFigure, displayPosition }) => [
+                              routineFigure.id,
+                              displayPosition,
+                            ]),
+                          )
+                        }
+                        onSelect={setSelectedRoutineFigureId}
+                        onRename={(name) =>
+                          runChange(
+                            () =>
+                              renameRoutineSection(routineSection.id, name).then(() => undefined),
+                            'Název části sestavy je uložený.',
+                          )
+                        }
+                        onMoveUp={() =>
+                          runChange(
+                            () =>
+                              moveRoutineSection(
+                                routineSection.id,
+                                selectedRoutine.sections[sectionIndex - 1]?.id ?? routineSection.id,
+                              ),
+                            'Pořadí částí sestavy je uložené.',
+                          )
+                        }
+                        onMoveDown={() =>
+                          runChange(
+                            () =>
+                              moveRoutineSection(
+                                routineSection.id,
+                                selectedRoutine.sections[sectionIndex + 2]?.id ?? null,
+                              ),
+                            'Pořadí částí sestavy je uložené.',
+                          )
+                        }
+                        onAddPlaceholder={() =>
+                          runChange(async () => {
+                            const added = await addPlaceholder(routineSection.id);
                             setSelectedRoutineFigureId(added.id);
                           }, 'Přidán prázdný výskyt figury.')
                         }
-                      >
-                        + Figura
-                      </button>
-                    )}
+                        onAssign={(routineFigureId, figureId, figureVariantId) =>
+                          runChange(
+                            () => assignRoutineFigure(routineFigureId, figureId, figureVariantId),
+                            'Figura je přiřazená k výskytu.',
+                          )
+                        }
+                        onCreateInline={(routineFigureId, name) =>
+                          runChange(
+                            () => createFigureForRoutineFigure(routineFigureId, name),
+                            'Nová figura a její výchozí varianta jsou přiřazené.',
+                          )
+                        }
+                        onMoveFigure={(routineFigureId, beforeRoutineFigureId) =>
+                          runChange(
+                            () => moveRoutineFigure(routineFigureId, beforeRoutineFigureId),
+                            'Pořadí výskytů je uložené.',
+                          )
+                        }
+                        onMoveToSection={(routineFigureId, routineSectionId) =>
+                          runChange(
+                            () => moveRoutineFigureToSection(routineFigureId, routineSectionId),
+                            'Výskyt je přesunutý do vybrané části sestavy.',
+                          )
+                        }
+                        onDone={(routineFigureId, done) =>
+                          runChange(
+                            () => setRoutineFigureDone(routineFigureId, done).then(() => undefined),
+                            done
+                              ? 'Výskyt je označený jako hotový.'
+                              : 'Výskyt už není označený jako hotový.',
+                          )
+                        }
+                      />
+                    ))}
                   </div>
-                  {selectedRoutine.routineFigures.length === 0 ? (
-                    <p className={styles.emptyRoutine}>
-                      Začněte tlačítkem + Figura. Můžete přidat jen prázdné místo.
-                    </p>
-                  ) : (
-                    <ol className={styles.routineFigureList}>
-                      {selectedRoutine.routineFigures.map((routineFigure, index) => (
-                        <RoutineFigureRow
-                          key={routineFigure.id}
-                          routineFigure={routineFigure}
-                          index={index}
-                          total={selectedRoutine.routineFigures.length}
-                          figures={notebook.figures}
-                          editable={editable}
-                          saving={saving}
-                          selected={routineFigure.id === selectedRoutineFigureId}
-                          onSelect={() => setSelectedRoutineFigureId(routineFigure.id)}
-                          onAssign={(figureId, figureVariantId) =>
-                            runChange(
-                              () =>
-                                assignRoutineFigure(routineFigure.id, figureId, figureVariantId),
-                              'Figura je přiřazená k výskytu.',
-                            )
-                          }
-                          onCreateInline={(name) =>
-                            runChange(
-                              () => createFigureForRoutineFigure(routineFigure.id, name),
-                              'Nová figura a její výchozí varianta jsou přiřazené.',
-                            )
-                          }
-                          onMoveUp={() =>
-                            runChange(
-                              () =>
-                                moveRoutineFigure(
-                                  routineFigure.id,
-                                  selectedRoutine.routineFigures[index - 1]?.id ?? routineFigure.id,
-                                ),
-                              'Pořadí výskytů je uložené.',
-                            )
-                          }
-                          onMoveDown={() =>
-                            runChange(
-                              () =>
-                                moveRoutineFigure(
-                                  routineFigure.id,
-                                  selectedRoutine.routineFigures[index + 2]?.id ?? null,
-                                ),
-                              'Pořadí výskytů je uložené.',
-                            )
-                          }
-                          onDone={(done) =>
-                            runChange(
-                              () =>
-                                setRoutineFigureDone(routineFigure.id, done).then(() => undefined),
-                              done
-                                ? 'Výskyt je označený jako hotový.'
-                                : 'Výskyt už není označený jako hotový.',
-                            )
-                          }
+                  {editable && (
+                    <form
+                      className={styles.addSectionForm}
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const formElement = event.currentTarget;
+                        const name = String(
+                          new FormData(formElement).get('routineSectionName') ?? '',
+                        );
+                        void runChange(async () => {
+                          await createRoutineSection(selectedRoutine.id, name);
+                          formElement.reset();
+                        }, 'Nová část sestavy je přidaná.');
+                      }}
+                    >
+                      <label>
+                        Název nové části
+                        <input
+                          name="routineSectionName"
+                          required
+                          maxLength={200}
+                          placeholder="Např. První dlouhá strana"
                         />
-                      ))}
-                    </ol>
+                      </label>
+                      <button type="submit" disabled={saving}>
+                        + Část sestavy
+                      </button>
+                    </form>
                   )}
                 </section>
               )}
@@ -458,8 +512,10 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
             <h2>Tento výskyt v sestavě</h2>
             {selectedRoutineFigure ? (
               <p>
-                Číslo {selectedRoutineFigure.position} ·{' '}
+                Číslo {selectedRoutineFigureEntry?.displayPosition} ·{' '}
                 {selectedRoutineFigure.done ? 'hotovo' : 'rozpracováno'}
+                {selectedRoutineFigureEntry &&
+                  ` · ${selectedRoutineFigureEntry.routineSection.name}`}
               </p>
             ) : (
               <p>Vyberte řádek sestavy pro místní kontext.</p>
@@ -502,10 +558,168 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
   );
 }
 
+function RoutineSectionBlock({
+  routineSection,
+  sectionIndex,
+  totalSections,
+  allSections,
+  figures,
+  editable,
+  saving,
+  selectedRoutineFigureId,
+  displayPositionById,
+  onSelect,
+  onRename,
+  onMoveUp,
+  onMoveDown,
+  onAddPlaceholder,
+  onAssign,
+  onCreateInline,
+  onMoveFigure,
+  onMoveToSection,
+  onDone,
+}: {
+  readonly routineSection: RoutineSection;
+  readonly sectionIndex: number;
+  readonly totalSections: number;
+  readonly allSections: readonly RoutineSection[];
+  readonly figures: DanceNotebook['figures'];
+  readonly editable: boolean;
+  readonly saving: boolean;
+  readonly selectedRoutineFigureId: string | null;
+  readonly displayPositionById: ReadonlyMap<string, number>;
+  readonly onSelect: (routineFigureId: string) => void;
+  readonly onRename: (name: string) => Promise<void>;
+  readonly onMoveUp: () => Promise<void>;
+  readonly onMoveDown: () => Promise<void>;
+  readonly onAddPlaceholder: () => Promise<void>;
+  readonly onAssign: (
+    routineFigureId: string,
+    figureId: string,
+    figureVariantId: string | null,
+  ) => Promise<void>;
+  readonly onCreateInline: (routineFigureId: string, name: string) => Promise<void>;
+  readonly onMoveFigure: (
+    routineFigureId: string,
+    beforeRoutineFigureId: string | null,
+  ) => Promise<void>;
+  readonly onMoveToSection: (routineFigureId: string, routineSectionId: string) => Promise<void>;
+  readonly onDone: (routineFigureId: string, done: boolean) => Promise<void>;
+}) {
+  async function submitRename(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = String(new FormData(event.currentTarget).get('routineSectionName') ?? '');
+    await onRename(name);
+  }
+
+  return (
+    <section className={styles.routineSection} aria-labelledby={`section-${routineSection.id}`}>
+      <div className={styles.sectionHeader}>
+        <div>
+          <h4 id={`section-${routineSection.id}`}>{routineSection.name}</h4>
+          <small>
+            Část {sectionIndex + 1} z {totalSections}
+          </small>
+        </div>
+        {editable && (
+          <div className={styles.sectionActions}>
+            <button
+              type="button"
+              disabled={saving || sectionIndex === 0}
+              aria-label={`Posunout část ${routineSection.name} nahoru`}
+              onClick={() => void onMoveUp()}
+            >
+              Nahoru
+            </button>
+            <button
+              type="button"
+              disabled={saving || sectionIndex === totalSections - 1}
+              aria-label={`Posunout část ${routineSection.name} dolů`}
+              onClick={() => void onMoveDown()}
+            >
+              Dolů
+            </button>
+          </div>
+        )}
+      </div>
+      {editable && (
+        <form
+          key={`${routineSection.id}:${routineSection.name}`}
+          className={styles.sectionRenameForm}
+          onSubmit={(event) => void submitRename(event)}
+        >
+          <label>
+            Název části sestavy
+            <input
+              name="routineSectionName"
+              required
+              maxLength={200}
+              defaultValue={routineSection.name}
+            />
+          </label>
+          <button type="submit" disabled={saving}>
+            Přejmenovat část
+          </button>
+        </form>
+      )}
+      {routineSection.routineFigures.length === 0 ? (
+        <p className={styles.emptyRoutine}>V této části zatím není žádná figura.</p>
+      ) : (
+        <ol className={styles.routineFigureList}>
+          {routineSection.routineFigures.map((routineFigure, index) => (
+            <RoutineFigureRow
+              key={routineFigure.id}
+              routineFigure={routineFigure}
+              displayPosition={displayPositionById.get(routineFigure.id) ?? 0}
+              index={index}
+              total={routineSection.routineFigures.length}
+              allSections={allSections}
+              figures={figures}
+              editable={editable}
+              saving={saving}
+              selected={routineFigure.id === selectedRoutineFigureId}
+              onSelect={() => onSelect(routineFigure.id)}
+              onAssign={(figureId, figureVariantId) =>
+                onAssign(routineFigure.id, figureId, figureVariantId)
+              }
+              onCreateInline={(name) => onCreateInline(routineFigure.id, name)}
+              onMoveUp={() =>
+                onMoveFigure(
+                  routineFigure.id,
+                  routineSection.routineFigures[index - 1]?.id ?? routineFigure.id,
+                )
+              }
+              onMoveDown={() =>
+                onMoveFigure(routineFigure.id, routineSection.routineFigures[index + 2]?.id ?? null)
+              }
+              onMoveToSection={(routineSectionId) =>
+                onMoveToSection(routineFigure.id, routineSectionId)
+              }
+              onDone={(done) => onDone(routineFigure.id, done)}
+            />
+          ))}
+        </ol>
+      )}
+      {editable && (
+        <button
+          type="button"
+          className={styles.addFigureButton}
+          disabled={saving}
+          onClick={() => void onAddPlaceholder()}
+        >
+          + Figura
+        </button>
+      )}
+    </section>
+  );
+}
+
 function RoutineFigureRow({
   routineFigure,
+  displayPosition,
   index,
   total,
+  allSections,
   figures,
   editable,
   saving,
@@ -515,11 +729,14 @@ function RoutineFigureRow({
   onCreateInline,
   onMoveUp,
   onMoveDown,
+  onMoveToSection,
   onDone,
 }: {
   readonly routineFigure: RoutineFigure;
+  readonly displayPosition: number;
   readonly index: number;
   readonly total: number;
+  readonly allSections: readonly RoutineSection[];
   readonly figures: DanceNotebook['figures'];
   readonly editable: boolean;
   readonly saving: boolean;
@@ -529,6 +746,7 @@ function RoutineFigureRow({
   readonly onCreateInline: (name: string) => Promise<void>;
   readonly onMoveUp: () => Promise<void>;
   readonly onMoveDown: () => Promise<void>;
+  readonly onMoveToSection: (routineSectionId: string) => Promise<void>;
   readonly onDone: (done: boolean) => Promise<void>;
 }) {
   function selectAssignment(event: ChangeEvent<HTMLSelectElement>) {
@@ -556,17 +774,29 @@ function RoutineFigureRow({
         aria-expanded={selected}
         onClick={onSelect}
       >
-        <span className={styles.occurrenceNumber}>{routineFigure.position}</span>
+        <span className={styles.occurrenceNumber}>{displayPosition}</span>
         <span className={styles.occurrenceDetails}>
-          <strong>
-            {routineFigure.figureName ?? `Figura ${routineFigure.position} — nevybraná`}
-          </strong>
+          <strong>{routineFigure.figureName ?? `Figura ${displayPosition} — nevybraná`}</strong>
           {routineFigure.figureVariantName && <small>{routineFigure.figureVariantName}</small>}
         </span>
         <span className={styles.doneState}>{routineFigure.done ? 'Hotovo' : 'Rozpracováno'}</span>
       </button>
       {editable && selected && (
         <div className={styles.routineFigureControls}>
+          <label>
+            Část sestavy
+            <select
+              value={routineFigure.sectionId}
+              disabled={saving || allSections.length < 2}
+              onChange={(event) => void onMoveToSection(event.target.value)}
+            >
+              {allSections.map((routineSection) => (
+                <option key={routineSection.id} value={routineSection.id}>
+                  {routineSection.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             Existující figura nebo varianta
             <select value={selectedValue} disabled={saving} onChange={selectAssignment}>

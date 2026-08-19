@@ -78,7 +78,9 @@ Archived objects are excluded from normal creation selectors by default, with an
 
 ## Quick Routine entry
 
-The primary Routine command is `+ Figure`. It opens a keyboard- and touch-friendly chooser with four paths:
+Creating a Routine asks only for Dance and name and immediately shows its automatically created first Section, `Část 1`. The heading is always visible, including while it is the only Section, so Leader or Follower can rename it directly without a second creation dialog. Host sees the same hierarchy without mutation controls.
+
+Each Section has its own primary `+ Figure` command. It opens a keyboard- and touch-friendly chooser with four paths:
 
 1. add a placeholder immediately;
 2. search a Figure for the current Dance;
@@ -87,9 +89,11 @@ The primary Routine command is `+ Figure`. It opens a keyboard- and touch-friend
 
 Inline creation asks only for name because the Routine supplies Dance. Submission atomically creates the Figure and first variant, assigns it, closes the chooser, and selects the new occurrence. The Routine remains visible throughout.
 
-The ordered list supports insert before/after, drag or accessible move commands, and removal with clear consequences. Occurrence numbers update from order; notes and Done remain attached to the stable occurrence.
+Sections use free user-entered names and accessible up/down commands. Empty Sections are normal, and creating another Section asks only for its name and appends it. Names such as long side, short side, or corner carry no built-in semantics.
 
-Placeholders show neutral labels such as “Figure 3 — not selected yet” and accept notes and section membership. They are not error-red.
+The ordered list supports insert before/after, drag or accessible move commands, and removal with clear consequences. Occurrences reorder within their current Section. A focused `Routine section` control moves an occurrence to another Section while preserving its stable identity and contextual data. Occurrence numbers update by flattening ordered Sections and each Section's local order; no global display number is stored.
+
+Placeholders show neutral labels such as “Figure 3 — not selected yet,” belong to the Section where they were added, and accept notes. They are not error-red.
 
 ## Shared definition versus this occurrence
 

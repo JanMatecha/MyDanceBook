@@ -35,7 +35,7 @@ describe('verified SQLite backup', () => {
       reason: 'integration-test',
     });
 
-    expect(result.migrationVersion).toBe(3);
+    expect(result.migrationVersion).toBe(4);
     const backup = new Database(result.path, { readonly: true, fileMustExist: true });
     expect(
       backup.prepare('SELECT value FROM backup_fixture WHERE id = ?').get('fixture-1'),

@@ -18,7 +18,11 @@ import {
   AssignRoutineFigureCommand,
   CreateFigureForRoutineFigureCommand,
   CreateRoutineCommand,
+  CreateRoutineSectionCommand,
   MoveRoutineFigureCommand,
+  MoveRoutineFigureToSectionCommand,
+  MoveRoutineSectionCommand,
+  RenameRoutineSectionCommand,
   SetRoutineFigureDoneCommand,
 } from '../../src/application/routine/routine-use-cases.js';
 import { createEntityId } from '../../src/domain/identity.js';
@@ -82,10 +86,41 @@ describe('Routine notebook API', () => {
     });
     expect(createdRoutine.statusCode).toBe(201);
     const routine = createdRoutine.json();
+    expect(routine).not.toHaveProperty('routineFigures');
+    expect(routine.sections).toEqual([
+      expect.objectContaining({ name: 'Část 1', position: 1, routineFigures: [] }),
+    ]);
+    const firstSection = routine.sections[0];
+    const secondSectionResponse = await app.inject({
+      method: 'POST',
+      url: `/api/routines/${routine.id}/sections`,
+      payload: { name: 'První krátká strana' },
+    });
+    expect(secondSectionResponse.statusCode).toBe(201);
+    const secondSection = secondSectionResponse.json();
+    const thirdSectionResponse = await app.inject({
+      method: 'POST',
+      url: `/api/routines/${routine.id}/sections`,
+      payload: { name: 'Prázdná část' },
+    });
+    expect(thirdSectionResponse.statusCode).toBe(201);
+    const thirdSection = thirdSectionResponse.json();
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: `/api/routine-sections/${firstSection.id}/name`,
+          payload: { name: 'První dlouhá strana' },
+        })
+      ).statusCode,
+    ).toBe(200);
 
     const placeholders = await Promise.all(
-      [1, 2, 3].map(() =>
-        app.inject({ method: 'POST', url: `/api/routines/${routine.id}/routine-figures` }),
+      [firstSection.id, firstSection.id, secondSection.id].map((sectionId) =>
+        app.inject({
+          method: 'POST',
+          url: `/api/routine-sections/${sectionId}/routine-figures`,
+        }),
       ),
     );
     expect(placeholders.map((result) => result.statusCode)).toEqual([201, 201, 201]);
@@ -121,31 +156,64 @@ describe('Routine notebook API', () => {
         })
       ).statusCode,
     ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          method: 'PUT',
+          url: `/api/routine-figures/${first.id}/section`,
+          payload: { routineSectionId: thirdSection.id },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/routine-sections/${thirdSection.id}/move`,
+          payload: { beforeRoutineSectionId: secondSection.id },
+        })
+      ).statusCode,
+    ).toBe(200);
 
     const captured = await app.inject({ method: 'GET', url: `/api/dances/${waltz.id}/notebook` });
     expect(captured.statusCode).toBe(200);
     const capturedRoutine = captured.json().routines[0];
-    expect(capturedRoutine.routineFigures.map((item: { id: string }) => item.id)).toEqual([
+    expect(capturedRoutine).not.toHaveProperty('routineFigures');
+    expect(capturedRoutine.sections.map((section: { id: string }) => section.id)).toEqual([
+      firstSection.id,
+      thirdSection.id,
+      secondSection.id,
+    ]);
+    const capturedRoutineFigures = capturedRoutine.sections.flatMap(
+      (section: { routineFigures: unknown[] }) => section.routineFigures,
+    );
+    expect(capturedRoutineFigures.map((item: { id: string }) => item.id)).toEqual([
       second.id,
       first.id,
       third.id,
     ]);
-    expect(capturedRoutine.routineFigures).toEqual(
+    expect(capturedRoutineFigures).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: first.id,
+          sectionId: thirdSection.id,
+          position: 1,
           figureId: naturalTurn.id,
           figureVariantId: naturalTurn.variants[0].id,
           done: true,
         }),
         expect.objectContaining({
           id: second.id,
+          sectionId: firstSection.id,
+          position: 1,
           figureName: 'Reverse Turn',
           figureVariantName: 'Výchozí varianta',
           done: false,
         }),
         expect.objectContaining({
           id: third.id,
+          sectionId: secondSection.id,
+          position: 1,
           figureId: null,
           figureVariantId: null,
           done: false,
@@ -196,11 +264,18 @@ describe('Routine notebook API', () => {
       payload: { name: 'Trénink' },
     });
     const routine = createdRoutine.json();
+    const routineSectionId = routine.sections[0].id;
     const first = (
-      await app.inject({ method: 'POST', url: `/api/routines/${routine.id}/routine-figures` })
+      await app.inject({
+        method: 'POST',
+        url: `/api/routine-sections/${routineSectionId}/routine-figures`,
+      })
     ).json();
     const second = (
-      await app.inject({ method: 'POST', url: `/api/routines/${routine.id}/routine-figures` })
+      await app.inject({
+        method: 'POST',
+        url: `/api/routine-sections/${routineSectionId}/routine-figures`,
+      })
     ).json();
     for (const occurrence of [first, second]) {
       expect(
@@ -231,7 +306,9 @@ describe('Routine notebook API', () => {
     expect(
       notebook
         .json()
-        .routines[0].routineFigures.map((item: { figureName: string }) => item.figureName),
+        .routines[0].sections[0].routineFigures.map(
+          (item: { figureName: string }) => item.figureName,
+        ),
     ).toEqual(['Otočka vpravo', 'Otočka vpravo']);
     const invalid = await app.inject({
       method: 'PUT',
@@ -265,7 +342,9 @@ describe('Routine notebook API', () => {
     expect(
       reloaded
         .json()
-        .routines[0].routineFigures.map((item: { figureName: string }) => item.figureName),
+        .routines[0].sections[0].routineFigures.map(
+          (item: { figureName: string }) => item.figureName,
+        ),
     ).toEqual(['Otočka vpravo', 'Otočka vpravo']);
     await reopenedApp.close();
     reopened.close();
@@ -289,10 +368,14 @@ async function buildNotebookServer(persistence: PersistenceContext) {
       createFigure: new CreateFigureCommand(figures),
       renameFigure: new RenameFigureCommand(figures),
       createRoutine: new CreateRoutineCommand(routines),
+      createRoutineSection: new CreateRoutineSectionCommand(routines),
+      renameRoutineSection: new RenameRoutineSectionCommand(routines),
+      moveRoutineSection: new MoveRoutineSectionCommand(routines),
       addPlaceholder: new AddRoutineFigurePlaceholderCommand(routines),
       assignRoutineFigure: new AssignRoutineFigureCommand(routines),
       createFigureForRoutineFigure: new CreateFigureForRoutineFigureCommand(routines),
       moveRoutineFigure: new MoveRoutineFigureCommand(routines),
+      moveRoutineFigureToSection: new MoveRoutineFigureToSectionCommand(routines),
       setRoutineFigureDone: new SetRoutineFigureDoneCommand(routines),
     },
   });

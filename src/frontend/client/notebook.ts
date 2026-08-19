@@ -24,7 +24,7 @@ const figureSchema = z.object({
 });
 const routineFigureSchema = z.object({
   id: z.string().uuid(),
-  routineId: z.string().uuid(),
+  sectionId: z.string().uuid(),
   position: z.number().int().min(1),
   figureId: z.string().uuid().nullable(),
   figureVariantId: z.string().uuid().nullable(),
@@ -34,13 +34,24 @@ const routineFigureSchema = z.object({
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
+const routineSectionBaseSchema = z.object({
+  id: z.string().uuid(),
+  routineId: z.string().uuid(),
+  name: z.string(),
+  position: z.number().int().min(1),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+const routineSectionSchema = routineSectionBaseSchema.extend({
+  routineFigures: z.array(routineFigureSchema),
+});
 const routineSchema = z.object({
   id: z.string().uuid(),
   danceId: z.string().uuid(),
   name: z.string(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
-  routineFigures: z.array(routineFigureSchema),
+  sections: z.array(routineSectionSchema).min(1),
 });
 const notebookSchema = z.object({
   dance: danceSchema,
@@ -52,6 +63,7 @@ const errorSchema = z.object({ message: z.string() });
 export type DanceNotebook = z.infer<typeof notebookSchema>;
 export type Figure = z.infer<typeof figureSchema>;
 export type Routine = z.infer<typeof routineSchema>;
+export type RoutineSection = z.infer<typeof routineSectionSchema>;
 export type RoutineFigure = z.infer<typeof routineFigureSchema>;
 
 export async function getDanceNotebook(
@@ -73,11 +85,55 @@ export async function createRoutine(danceId: string, name: string): Promise<Rout
   return request(`/api/dances/${danceId}/routines`, jsonPost({ name }), routineSchema);
 }
 
-export async function addPlaceholder(routineId: string): Promise<RoutineFigure> {
+export async function createRoutineSection(
+  routineId: string,
+  name: string,
+): Promise<z.infer<typeof routineSectionBaseSchema>> {
   return request(
-    `/api/routines/${routineId}/routine-figures`,
+    `/api/routines/${routineId}/sections`,
+    jsonPost({ name }),
+    routineSectionBaseSchema,
+  );
+}
+
+export async function renameRoutineSection(
+  routineSectionId: string,
+  name: string,
+): Promise<z.infer<typeof routineSectionBaseSchema>> {
+  return request(
+    `/api/routine-sections/${routineSectionId}/name`,
+    jsonPut({ name }),
+    routineSectionBaseSchema,
+  );
+}
+
+export async function moveRoutineSection(
+  routineSectionId: string,
+  beforeRoutineSectionId: string | null,
+): Promise<void> {
+  await request(
+    `/api/routine-sections/${routineSectionId}/move`,
+    jsonPost({ beforeRoutineSectionId }),
+    z.object({ status: z.literal('ok') }),
+  );
+}
+
+export async function addPlaceholder(routineSectionId: string): Promise<RoutineFigure> {
+  return request(
+    `/api/routine-sections/${routineSectionId}/routine-figures`,
     { method: 'POST' },
     routineFigureSchema,
+  );
+}
+
+export async function moveRoutineFigureToSection(
+  routineFigureId: string,
+  routineSectionId: string,
+): Promise<void> {
+  await request(
+    `/api/routine-figures/${routineFigureId}/section`,
+    jsonPut({ routineSectionId }),
+    z.object({ status: z.literal('ok') }),
   );
 }
 

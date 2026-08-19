@@ -35,9 +35,8 @@ flowchart TB
     Dance --> Figure
     Figure --> Variant["FigureVariant"]
     Dance --> Routine
-    Routine --> Section["RoutineSection (optional)"]
-    Routine --> Occurrence["RoutineFigure"]
-    Section -. "0..1" .-> Occurrence
+    Routine -->|"1..N"| Section["RoutineSection"]
+    Section -->|"0..N"| Occurrence["RoutineFigure"]
     Occurrence -. "optional reference" .-> Figure
     Occurrence -. "optional reference" .-> Variant
     Etude --> EtudeOccurrence["EtudeFigure"]
@@ -51,7 +50,7 @@ The `Figure → FigureVariant → RoutineFigure reference` chain is the central 
 - `Figure` and `FigureVariant` are central reusable knowledge;
 - `RoutineFigure` is one stable occurrence in a Routine;
 - central edits are visible in every reference;
-- occurrence-specific Done, Notes, Section, and placement context stay on the RoutineFigure;
+- occurrence-specific Done, Notes, and placement context stay on the RoutineFigure within its Section;
 - a structurally different execution is another FigureVariant, not an override.
 
 ## Pair, profiles, and dance catalogue
@@ -169,31 +168,30 @@ Duplicating a variant clones all structured canonical owned data and attached So
 | `startPositionMeters` | optional | Placement in FloorFrame |
 | `startOrientation` | optional | Placement in FloorFrame |
 
-Routine has one global order of RoutineFigures. Actual musical phase and floor placement of later occurrences are derived, not independently maintained sequences.
+Routine has one or more ordered RoutineSections. Its displayed global Figure sequence is derived by flattening ordered Sections and their ordered RoutineFigures. Actual musical phase and floor placement of later occurrences follow that derived sequence and are not independently maintained sequences.
 
 ### RoutineSection
 
 | Field | Requirement | Meaning |
 | --- | --- | --- |
 | `routineId` | required | Owning Routine |
-| `name` | required | Organizational label |
-| `orderKey` | required | Order of section labels/views |
+| `name` | required | Free user-entered organizational label |
+| `orderKey` | required | Order within the Routine |
 | `floorSideTermId` | optional | Optional semantic association, never intrinsic meaning |
 
-A Section's members must be contiguous in the Routine's global occurrence order. Membership, not a second per-section order, determines its range.
+A Routine has `1..N` Sections. Creating a Routine transactionally creates the first Section as `Část 1` without requiring another user input. Empty Sections are valid, and Section names have no built-in floor-side, corner, or other semantic meaning.
 
 ### RoutineFigure
 
 | Field | Requirement | Meaning |
 | --- | --- | --- |
-| `routineId` | required | Owning Routine |
-| `orderKey` | required | Stable ordering value; displayed number is derived |
-| `sectionId` | optional | Zero or one same-Routine Section |
+| `sectionId` | required | Exactly one owning RoutineSection |
+| `orderKey` | required | Stable ordering value within the Section |
 | `figureId` | optional | Allows placeholder or Figure-only state |
 | `figureVariantId` | optional | Concrete central variant reference |
 | `done` | required/default false | Manual occurrence progress only |
 
-`figureVariantId`, when present, must identify a child of `figureId`; both must belong to the Routine's Dance. A placeholder has neither. An implementation may derive `figureId` from the variant reference physically, but the API must expose the three conceptual states without contradiction.
+`figureVariantId`, when present, must identify a child of `figureId`; both must belong to the owning Section's Routine Dance. A placeholder has neither. An implementation may derive `figureId` from the variant reference physically, but the API must expose the three conceptual states without contradiction. The displayed global Figure number is derived by flattening Section order and Section-local occurrence order; it is not persisted as another canonical position.
 
 RoutineFigure contains no generic fields for alternative steps, timing, technical actions, states, or trajectories. Its “choreography context needed to place it” means derived predecessor/successor relation, local Notes, Section, and the Routine's start/nominal Floor context—not a hidden technical copy. Core-MVP placement is derived as specified in [TIMING_AND_GEOMETRY.md](TIMING_AND_GEOMETRY.md).
 
@@ -484,7 +482,8 @@ Required atomic operations include:
 - Movement plus first MovementVariant;
 - inline Figure creation plus RoutineFigure assignment;
 - variant duplication plus initiating occurrence switch;
-- reordering and Section contiguity updates;
+- creating, renaming, and reordering RoutineSections;
+- reordering within a Section and moving a stable RoutineFigure between Sections;
 - backup metadata finalization after a successful SQLite snapshot;
 - restore safety backup before replacement.
 
@@ -494,8 +493,9 @@ Core relational invariants include:
 - FigureVariant belongs to its Figure;
 - RoutineFigure references only the Routine's Dance and a variant of its selected Figure;
 - EtudeFigure references only a Dance in the Etude's discipline;
-- RoutineFigure has zero or one same-Routine Section;
-- Section members are contiguous in the one Routine order;
+- every Routine has at least one RoutineSection;
+- every RoutineFigure has exactly one Section;
+- Section order is unique within its Routine and RoutineFigure order is unique within its Section;
 - Step subject is Leader or Follower and order is unique per subject/variant;
 - rational denominators are positive;
 - every exact FigureVariant timeline value has one `timingSchemeId`, and exact PatternUses reference Patterns with that same Scheme;
