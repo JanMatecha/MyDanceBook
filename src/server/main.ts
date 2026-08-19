@@ -1,5 +1,8 @@
 import { GetAppStateQuery } from '../application/app-state/get-app-state.js';
-import { CreateFigureCommand } from '../application/figure/figure-use-cases.js';
+import {
+  CreateFigureCommand,
+  RenameFigureCommand,
+} from '../application/figure/figure-use-cases.js';
 import { GetHealthQuery } from '../application/health/get-health.js';
 import {
   InitializePairCommand,
@@ -48,6 +51,7 @@ async function main(): Promise<void> {
           routineRepository,
         ),
         createFigure: new CreateFigureCommand(figureRepository),
+        renameFigure: new RenameFigureCommand(figureRepository),
         createRoutine: new CreateRoutineCommand(routineRepository),
         addPlaceholder: new AddRoutineFigurePlaceholderCommand(routineRepository),
         assignRoutineFigure: new AssignRoutineFigureCommand(routineRepository),

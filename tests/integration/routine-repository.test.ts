@@ -2,7 +2,10 @@ import { resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { CreateFigureCommand } from '../../src/application/figure/figure-use-cases.js';
+import {
+  CreateFigureCommand,
+  RenameFigureCommand,
+} from '../../src/application/figure/figure-use-cases.js';
 import {
   AddRoutineFigurePlaceholderCommand,
   AssignRoutineFigureCommand,
@@ -164,5 +167,78 @@ describe('SQLite Figure and Routine repositories', () => {
     ).toThrow();
     expect(figures.listByDance(waltz.id).map((figure) => figure.name)).toEqual(['Natural Turn']);
     persistence.close();
+  });
+
+  it('renames a central Figure without changing its variants or RoutineFigure references after reopen', async () => {
+    const root = await createTemporaryDirectory('figure-rename-repository');
+    temporaryDirectories.push(root);
+    const paths = resolveDataPaths(root);
+    const persistence = await initializePersistence({
+      paths,
+      migrationsDirectory: resolve('migrations'),
+    });
+    const waltz = new SqliteDanceCatalogue(persistence.database)
+      .list()
+      .find((dance) => dance.code === 'WALTZ');
+    if (!waltz) throw new Error('Testovací Waltz nebyl nalezen.');
+
+    const figures = new SqliteFigureRepository(persistence.database);
+    const routines = new SqliteRoutineRepository(persistence.database);
+    const figure = new CreateFigureCommand(figures).execute({
+      danceId: waltz.id,
+      name: 'Otočka v pravo',
+    });
+    const routine = new CreateRoutineCommand(routines).execute({
+      danceId: waltz.id,
+      name: 'Trénink',
+    });
+    const first = new AddRoutineFigurePlaceholderCommand(routines).execute(routine.id);
+    const second = new AddRoutineFigurePlaceholderCommand(routines).execute(routine.id);
+    if (!first || !second) throw new Error('Testovací výskyty nebyly vytvořeny.');
+    const variantId = figure.variants[0]?.id;
+    if (!variantId) throw new Error('Výchozí varianta nebyla vytvořena.');
+    const assign = new AssignRoutineFigureCommand(routines);
+    expect(assign.execute(first.id, figure.id, variantId)).toBe('updated');
+    expect(assign.execute(second.id, figure.id, variantId)).toBe('updated');
+
+    const renamed = new RenameFigureCommand(
+      figures,
+      () => new Date('2026-08-19T10:00:00.000Z'),
+    ).execute(figure.id, 'Otočka vpravo');
+    expect(renamed).toMatchObject({
+      id: figure.id,
+      name: 'Otočka vpravo',
+      variants: [{ id: variantId, figureId: figure.id }],
+    });
+    expect(routines.listByDance(waltz.id)[0]?.routineFigures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: first.id, figureId: figure.id, figureName: 'Otočka vpravo' }),
+        expect.objectContaining({
+          id: second.id,
+          figureId: figure.id,
+          figureName: 'Otočka vpravo',
+        }),
+      ]),
+    );
+
+    persistence.close();
+    const reopened = await initializePersistence({
+      paths,
+      migrationsDirectory: resolve('migrations'),
+    });
+    const reopenedFigures = new SqliteFigureRepository(reopened.database).listByDance(waltz.id);
+    const reopenedRoutine = new SqliteRoutineRepository(reopened.database).listByDance(waltz.id)[0];
+    expect(reopenedFigures).toEqual([
+      expect.objectContaining({
+        id: figure.id,
+        name: 'Otočka vpravo',
+        variants: [expect.objectContaining({ id: variantId, figureId: figure.id })],
+      }),
+    ]);
+    expect(reopenedRoutine?.routineFigures.map((item) => item.figureName)).toEqual([
+      'Otočka vpravo',
+      'Otočka vpravo',
+    ]);
+    reopened.close();
   });
 });

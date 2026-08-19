@@ -65,6 +65,10 @@ export async function createFigure(danceId: string, name: string): Promise<Figur
   return request(`/api/dances/${danceId}/figures`, jsonPost({ name }), figureSchema);
 }
 
+export async function renameFigure(figureId: string, name: string): Promise<Figure> {
+  return request(`/api/figures/${figureId}/name`, jsonPut({ name }), figureSchema);
+}
+
 export async function createRoutine(danceId: string, name: string): Promise<Routine> {
   return request(`/api/dances/${danceId}/routines`, jsonPost({ name }), routineSchema);
 }

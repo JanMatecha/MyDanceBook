@@ -1,7 +1,10 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 
-import type { CreateFigureCommand } from '../../application/figure/figure-use-cases.js';
+import type {
+  CreateFigureCommand,
+  RenameFigureCommand,
+} from '../../application/figure/figure-use-cases.js';
 import type { GetDanceNotebookQuery } from '../../application/routine/get-dance-notebook.js';
 import {
   AddRoutineFigurePlaceholderCommand,
@@ -20,9 +23,10 @@ const entityIdSchema = z
   .uuid()
   .refine((value) => parseEntityId(value) !== null);
 const danceParamsSchema = z.object({ danceId: entityIdSchema });
+const figureParamsSchema = z.object({ figureId: entityIdSchema });
 const routineParamsSchema = z.object({ routineId: entityIdSchema });
 const routineFigureParamsSchema = z.object({ routineFigureId: entityIdSchema });
-const nameSchema = z.object({ name: z.string().trim().min(1).max(200) }).strict();
+const nameSchema = z.object({ name: z.string() }).strict();
 const assignmentSchema = z
   .object({ figureId: entityIdSchema, figureVariantId: entityIdSchema.nullable().optional() })
   .strict();
@@ -80,6 +84,7 @@ const notebookSchema = z.object({
 export interface NotebookRouteServices {
   readonly getDanceNotebook: GetDanceNotebookQuery;
   readonly createFigure: CreateFigureCommand;
+  readonly renameFigure: RenameFigureCommand;
   readonly createRoutine: CreateRoutineCommand;
   readonly addPlaceholder: AddRoutineFigurePlaceholderCommand;
   readonly assignRoutineFigure: AssignRoutineFigureCommand;
@@ -111,6 +116,20 @@ export function registerNotebookRoutes(
       return reply
         .code(201)
         .send(figureSchema.parse(services.createFigure.execute({ ...input.data, danceId })));
+    } catch (cause: unknown) {
+      return sendNotebookError(reply, cause);
+    }
+  });
+
+  app.put('/api/figures/:figureId/name', async (request, reply) => {
+    const figureId = readId(figureParamsSchema.safeParse(request.params), reply);
+    const input = nameSchema.safeParse(request.body);
+    if (!figureId || !input.success) return sendInvalidRequest(reply);
+    try {
+      const figure = services.renameFigure.execute(figureId, input.data.name);
+      if (!figure)
+        return reply.code(404).send(notFound('figure_not_found', 'Figura nebyla nalezena.'));
+      return reply.code(200).send(figureSchema.parse(figure));
     } catch (cause: unknown) {
       return sendNotebookError(reply, cause);
     }
@@ -200,14 +219,23 @@ export function registerNotebookRoutes(
 }
 
 function readId(
-  parsed: z.ZodSafeParseResult<{ danceId?: string; routineId?: string; routineFigureId?: string }>,
+  parsed: z.ZodSafeParseResult<{
+    danceId?: string;
+    figureId?: string;
+    routineId?: string;
+    routineFigureId?: string;
+  }>,
   reply: FastifyReply,
 ) {
   if (!parsed.success) {
     sendInvalidRequest(reply);
     return null;
   }
-  const value = parsed.data.danceId ?? parsed.data.routineId ?? parsed.data.routineFigureId;
+  const value =
+    parsed.data.danceId ??
+    parsed.data.figureId ??
+    parsed.data.routineId ??
+    parsed.data.routineFigureId;
   return value === undefined ? null : parseEntityId(value);
 }
 

@@ -3,7 +3,10 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { GetAppStateQuery } from '../../src/application/app-state/get-app-state.js';
-import { CreateFigureCommand } from '../../src/application/figure/figure-use-cases.js';
+import {
+  CreateFigureCommand,
+  RenameFigureCommand,
+} from '../../src/application/figure/figure-use-cases.js';
 import { GetHealthQuery } from '../../src/application/health/get-health.js';
 import {
   InitializePairCommand,
@@ -18,6 +21,7 @@ import {
   MoveRoutineFigureCommand,
   SetRoutineFigureDoneCommand,
 } from '../../src/application/routine/routine-use-cases.js';
+import { createEntityId } from '../../src/domain/identity.js';
 import { resolveDataPaths } from '../../src/persistence/data-directories.js';
 import {
   initializePersistence,
@@ -165,6 +169,107 @@ describe('Routine notebook API', () => {
     await reopenedApp.close();
     reopened.close();
   });
+
+  it('renames a Figure through its focused endpoint and propagates the central name', async () => {
+    const root = await createTemporaryDirectory('figure-rename-api');
+    temporaryDirectories.push(root);
+    const paths = resolveDataPaths(root);
+    const persistence = await initializePersistence({
+      paths,
+      migrationsDirectory: resolve('migrations'),
+    });
+    const app = await buildNotebookServer(persistence);
+    const waltz = new SqliteDanceCatalogue(persistence.database)
+      .list()
+      .find((dance) => dance.code === 'WALTZ');
+    if (!waltz) throw new Error('Testovací Waltz nebyl nalezen.');
+
+    const createdFigure = await app.inject({
+      method: 'POST',
+      url: `/api/dances/${waltz.id}/figures`,
+      payload: { name: 'Otočka v pravo' },
+    });
+    const figure = createdFigure.json();
+    const createdRoutine = await app.inject({
+      method: 'POST',
+      url: `/api/dances/${waltz.id}/routines`,
+      payload: { name: 'Trénink' },
+    });
+    const routine = createdRoutine.json();
+    const first = (
+      await app.inject({ method: 'POST', url: `/api/routines/${routine.id}/routine-figures` })
+    ).json();
+    const second = (
+      await app.inject({ method: 'POST', url: `/api/routines/${routine.id}/routine-figures` })
+    ).json();
+    for (const occurrence of [first, second]) {
+      expect(
+        (
+          await app.inject({
+            method: 'PUT',
+            url: `/api/routine-figures/${occurrence.id}/assignment`,
+            payload: { figureId: figure.id, figureVariantId: figure.variants[0].id },
+          })
+        ).statusCode,
+      ).toBe(200);
+    }
+
+    const renamed = await app.inject({
+      method: 'PUT',
+      url: `/api/figures/${figure.id}/name`,
+      payload: { name: 'Otočka vpravo' },
+    });
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json()).toMatchObject({
+      id: figure.id,
+      name: 'Otočka vpravo',
+      variants: [{ id: figure.variants[0].id, figureId: figure.id }],
+    });
+
+    const notebook = await app.inject({ method: 'GET', url: `/api/dances/${waltz.id}/notebook` });
+    expect(notebook.statusCode).toBe(200);
+    expect(
+      notebook
+        .json()
+        .routines[0].routineFigures.map((item: { figureName: string }) => item.figureName),
+    ).toEqual(['Otočka vpravo', 'Otočka vpravo']);
+    const invalid = await app.inject({
+      method: 'PUT',
+      url: `/api/figures/${figure.id}/name`,
+      payload: { name: '   ' },
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json()).toMatchObject({
+      error: 'invalid_request',
+      message: 'Název figury musí obsahovat 1 až 200 znaků.',
+    });
+    const unknown = await app.inject({
+      method: 'PUT',
+      url: `/api/figures/${createEntityId()}/name`,
+      payload: { name: 'Jiná figura' },
+    });
+    expect(unknown.statusCode).toBe(404);
+    expect(unknown.json()).toMatchObject({ error: 'figure_not_found' });
+
+    await app.close();
+    persistence.close();
+    const reopened = await initializePersistence({
+      paths,
+      migrationsDirectory: resolve('migrations'),
+    });
+    const reopenedApp = await buildNotebookServer(reopened);
+    const reloaded = await reopenedApp.inject({
+      method: 'GET',
+      url: `/api/dances/${waltz.id}/notebook`,
+    });
+    expect(
+      reloaded
+        .json()
+        .routines[0].routineFigures.map((item: { figureName: string }) => item.figureName),
+    ).toEqual(['Otočka vpravo', 'Otočka vpravo']);
+    await reopenedApp.close();
+    reopened.close();
+  });
 });
 
 async function buildNotebookServer(persistence: PersistenceContext) {
@@ -182,6 +287,7 @@ async function buildNotebookServer(persistence: PersistenceContext) {
     notebookServices: {
       getDanceNotebook: new GetDanceNotebookQuery(dances, figures, routines),
       createFigure: new CreateFigureCommand(figures),
+      renameFigure: new RenameFigureCommand(figures),
       createRoutine: new CreateRoutineCommand(routines),
       addPlaceholder: new AddRoutineFigurePlaceholderCommand(routines),
       assignRoutineFigure: new AssignRoutineFigureCommand(routines),

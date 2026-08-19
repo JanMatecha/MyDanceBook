@@ -8,6 +8,7 @@ import {
   createRoutine,
   getDanceNotebook,
   moveRoutineFigure,
+  renameFigure,
   setRoutineFigureDone,
   type DanceNotebook,
   type RoutineFigure,
@@ -172,6 +173,17 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function submitCentralFigureName(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const figureId = selectedRoutineFigure?.figureId;
+    if (!editable || !figureId) return;
+    const name = String(new FormData(event.currentTarget).get('centralFigureName') ?? '');
+    await runChange(
+      () => renameFigure(figureId, name).then(() => undefined),
+      'Název sdílené figury je uložený ve všech jejích použitích.',
+    );
   }
 
   const activeLabel =
@@ -412,11 +424,31 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
             <h2>Sdílená definice</h2>
             {selectedRoutineFigure?.figureName ? (
               <>
-                <p>Změny této figury se později projeví všude, kde je použitá.</p>
+                <p>Sdílená definice – změny se projeví ve všech použitích.</p>
                 <strong>{selectedRoutineFigure.figureName}</strong>
                 <small>
                   {selectedRoutineFigure.figureVariantName ?? 'Varianta zatím není vybraná.'}
                 </small>
+                {editable && (
+                  <form
+                    key={`${selectedRoutineFigure.figureId}:${selectedRoutineFigure.figureName}`}
+                    className={styles.inlineForm}
+                    onSubmit={(event) => void submitCentralFigureName(event)}
+                  >
+                    <label>
+                      Název figury
+                      <input
+                        name="centralFigureName"
+                        required
+                        maxLength={200}
+                        defaultValue={selectedRoutineFigure.figureName}
+                      />
+                    </label>
+                    <button type="submit" disabled={saving}>
+                      Přejmenovat figuru
+                    </button>
+                  </form>
+                )}
               </>
             ) : (
               <p>Vyberte výskyt a přiřaďte mu figuru nebo vytvořte novou přímo v sestavě.</p>
@@ -518,14 +550,22 @@ function RoutineFigureRow({
     : '';
   return (
     <li className={selected ? styles.routineFigureSelected : styles.routineFigure}>
-      <button type="button" className={styles.occurrenceTitle} onClick={onSelect}>
+      <button
+        type="button"
+        className={styles.occurrenceTitle}
+        aria-expanded={selected}
+        onClick={onSelect}
+      >
         <span>{routineFigure.position}</span>
-        <strong>
-          {routineFigure.figureName ?? `Figura ${routineFigure.position} — nevybraná`}
-        </strong>
-        {routineFigure.figureVariantName && <small>{routineFigure.figureVariantName}</small>}
+        <span className={styles.occurrenceDetails}>
+          <strong>
+            {routineFigure.figureName ?? `Figura ${routineFigure.position} — nevybraná`}
+          </strong>
+          {routineFigure.figureVariantName && <small>{routineFigure.figureVariantName}</small>}
+        </span>
+        <span className={styles.doneState}>{routineFigure.done ? 'Hotovo' : 'Ještě nehotovo'}</span>
       </button>
-      {editable && (
+      {editable && selected && (
         <div className={styles.routineFigureControls}>
           <label>
             Existující figura nebo varianta
@@ -580,7 +620,6 @@ function RoutineFigureRow({
           </div>
         </div>
       )}
-      {!editable && <p>{routineFigure.done ? 'Hotovo' : 'Ještě nehotovo'}</p>}
     </li>
   );
 }

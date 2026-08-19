@@ -31,3 +31,14 @@ export class CreateFigureCommand {
     return this.figures.create(record);
   }
 }
+
+export class RenameFigureCommand {
+  public constructor(
+    private readonly figures: FigureRepository,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  public execute(figureId: EntityId, name: string): FigureWithVariants | null {
+    return this.figures.rename(figureId, toFigureName(name), this.now().toISOString());
+  }
+}
