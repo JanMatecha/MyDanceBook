@@ -43,11 +43,11 @@ flowchart LR
     F --> V["FigureVariant: shared execution"]
     V -. "referenced by" .-> RF1["RoutineFigure occurrence A"]
     V -. "referenced by" .-> RF2["RoutineFigure occurrence B"]
-    RF1 --> N1["Local notes and Done"]
-    RF2 --> N2["Local notes and Done"]
+    RF1 --> N1["Local notes"]
+    RF2 --> N2["Local notes"]
 ```
 
-Editing a FigureVariant changes the shared definition everywhere it is referenced. A RoutineFigure owns order, optional section, manual Done status, local notes, and placement context; it does not own a copied variant or a generic technical override.
+Editing a FigureVariant changes the shared definition everywhere it is referenced. A RoutineFigure owns order, optional section, local notes, and placement context; it does not own a copied variant or a generic technical override.
 
 When one occurrence needs structurally different execution, the user duplicates the current variant, the occurrence switches to the duplicate, and both variants then evolve independently. Genealogy is not retained in Core MVP.
 
@@ -126,14 +126,13 @@ The fastest path through a training session is:
 3. replace a placeholder by selecting or creating a Figure inline;
 4. keep working in the Routine while editing the shared variant in the detail panel;
 5. capture short, correctly scoped notes;
-6. mark individual occurrences Done manually;
-7. refine steps, movement, timing, and geometry when knowledge and time allow.
+6. refine steps, movement, timing, and geometry when knowledge and time allow.
 
-Manual Done is occurrence-specific progress, not a claim of theoretical completeness. Optional expected figure count can support a simple “10 / 15” progress display. Any future coverage metric must remain separate and must not claim how much dance the pair “knows.”
+Optional expected figure count can support a simple “10 / 15” progress display. Any future coverage metric must not claim how much dance the pair “knows.”
 
 ## Surfaces and usage context
 
-Notebook/desktop is the primary full editing surface with navigation, routine/floor workspace, and selected-item details visible together. The same browser application is responsive on tablet and phone for browsing, notes, Done status, simple edits, and technique/timing review. Complex editors may use simplified mobile layouts; there is no separate mobile application and Core MVP requires an active backend connection.
+Notebook/desktop is the primary full editing surface with navigation, routine/floor workspace, and selected-item details visible together. The same browser application is responsive on tablet and phone for browsing, notes, simple edits, and technique/timing review. Complex editors may use simplified mobile layouts; there is no separate mobile application and Core MVP requires an active backend connection.
 
 Both pair members may use the application simultaneously. Core MVP provides only informational presence, browser-session Undo/Redo, and autosave—not hard locks, semantic merge, persistent Undo, or offline synchronization.
 

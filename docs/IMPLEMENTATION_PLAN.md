@@ -79,7 +79,7 @@ subset together with the minimum Routine/RoutineFigure capability from Slice
 - search/select Figure and variant;
 - create Figure inline and assign it without leaving Routine;
 - create the first RoutineSection automatically, support ordered named Sections, and keep RoutineFigure order within its owning Section;
-- add manual occurrence Done and expected total progress.
+- add occurrence ordering and expected total progress.
 
 ### Slice 2.4: shared/local editing and Notes
 
@@ -99,7 +99,7 @@ subset together with the minimum Routine/RoutineFigure capability from Slice
 
 Phase-2 tests cover all central/local reference and quick-entry acceptance scenarios on notebook and phone widths. Use a real pair-created textual fixture before exit.
 
-Exit gate: the pair can maintain real routines, placeholders, figures, variants, Notes, and Done on notebook and phone. This is the first usable product milestone.
+Exit gate: the pair can maintain real routines, placeholders, figures, variants, and Notes on notebook and phone. This is the first usable product milestone.
 
 ## Phase 3 — structured technique
 

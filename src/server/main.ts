@@ -21,7 +21,6 @@ import {
   RemoveRoutineFigureCommand,
   MoveRoutineSectionCommand,
   RenameRoutineSectionCommand,
-  SetRoutineFigureDoneCommand,
 } from '../application/routine/routine-use-cases.js';
 import { initializePersistence } from '../persistence/initialize.js';
 import { SqliteDanceCatalogue } from '../persistence/sqlite/dance-catalogue.js';
@@ -69,7 +68,6 @@ async function main(): Promise<void> {
         moveRoutineFigure: new MoveRoutineFigureCommand(routineRepository),
         moveRoutineFigureToSection: new MoveRoutineFigureToSectionCommand(routineRepository),
         removeRoutineFigure: new RemoveRoutineFigureCommand(routineRepository),
-        setRoutineFigureDone: new SetRoutineFigureDoneCommand(routineRepository),
       },
       staticRoot: config.staticRoot,
       logger: true,

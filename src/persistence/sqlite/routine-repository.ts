@@ -46,7 +46,6 @@ interface RoutineFigureRow {
   readonly figure_name_en: string | null;
   readonly figure_variant_name: string | null;
   readonly figure_variant_timing_notation: string | null;
-  readonly done: number;
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -91,7 +90,7 @@ export class SqliteRoutineRepository implements RoutineRepository {
                 figures.name_cs AS figure_name_cs, figures.name_en AS figure_name_en,
                 figure_variants.name AS figure_variant_name,
                 figure_variants.timing_notation AS figure_variant_timing_notation,
-                routine_figures.done, routine_figures.created_at, routine_figures.updated_at
+                routine_figures.created_at, routine_figures.updated_at
          FROM routine_figures
          JOIN routine_sections ON routine_sections.id = routine_figures.section_id
          JOIN routines ON routines.id = routine_sections.routine_id
@@ -281,8 +280,8 @@ export class SqliteRoutineRepository implements RoutineRepository {
       this.database
         .prepare(
           `INSERT INTO routine_figures
-             (id, section_id, position, figure_id, figure_variant_id, done, created_at, updated_at)
-           VALUES (?, ?, ?, NULL, NULL, 0, ?, ?)`,
+             (id, section_id, position, figure_id, figure_variant_id, created_at, updated_at)
+           VALUES (?, ?, ?, NULL, NULL, ?, ?)`,
         )
         .run(record.id, record.sectionId, position.position, record.createdAt, record.createdAt);
       return {
@@ -295,7 +294,6 @@ export class SqliteRoutineRepository implements RoutineRepository {
         figureNameEn: null,
         figureVariantName: null,
         figureVariantTimingNotation: null,
-        done: false,
         createdAt: record.createdAt,
         updatedAt: record.createdAt,
       } satisfies RoutineFigure;
@@ -481,22 +479,6 @@ export class SqliteRoutineRepository implements RoutineRepository {
     return remove();
   }
 
-  public setDone(
-    routineFigureId: EntityId,
-    done: boolean,
-    updatedAt: string,
-  ): RoutineFigure | null {
-    const update = this.database.transaction(() => {
-      const row = this.findRoutineFigure(routineFigureId);
-      if (!row) return null;
-      this.database
-        .prepare('UPDATE routine_figures SET done = ?, updated_at = ? WHERE id = ?')
-        .run(done ? 1 : 0, updatedAt, routineFigureId);
-      return { ...mapRoutineFigure(row), done, updatedAt };
-    });
-    return update();
-  }
-
   private stageSectionPositions(
     routineId: string,
     sections: readonly OrderedLocationRow[],
@@ -542,23 +524,6 @@ export class SqliteRoutineRepository implements RoutineRepository {
          WHERE routine_figures.id = ?`,
       )
       .get(routineFigureId) as RoutineFigureLocationRow | undefined;
-  }
-
-  private findRoutineFigure(routineFigureId: EntityId): RoutineFigureRow | undefined {
-    return this.database
-      .prepare(
-        `SELECT routine_figures.id, routine_figures.section_id, routine_figures.position,
-                routine_figures.figure_id, routine_figures.figure_variant_id,
-                figures.name_cs AS figure_name_cs, figures.name_en AS figure_name_en,
-                figure_variants.name AS figure_variant_name,
-                figure_variants.timing_notation AS figure_variant_timing_notation,
-                routine_figures.done, routine_figures.created_at, routine_figures.updated_at
-         FROM routine_figures
-         LEFT JOIN figures ON figures.id = routine_figures.figure_id
-         LEFT JOIN figure_variants ON figure_variants.id = routine_figures.figure_variant_id
-         WHERE routine_figures.id = ?`,
-      )
-      .get(routineFigureId) as RoutineFigureRow | undefined;
   }
 
   private isValidAssignment(
@@ -622,7 +587,6 @@ function mapRoutineFigure(row: RoutineFigureRow): RoutineFigure {
     figureNameEn: row.figure_name_en,
     figureVariantName: row.figure_variant_name,
     figureVariantTimingNotation: row.figure_variant_timing_notation,
-    done: row.done === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

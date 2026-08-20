@@ -39,7 +39,7 @@ Section order would create two competing canonical sequences.
 The canonical API shape is `Routine.sections[].routineFigures[]`. Persistence
 stores Section order per Routine and occurrence order per Section. Existing
 flat migration-0003 data is placed under exactly one generated `Část 1`
-Section per Routine while preserving occurrence IDs, order, references, Done,
+Section per Routine while preserving occurrence IDs, order, references,
 and timestamps.
 
 Section and occurrence reorder commands keep stable IDs. Cross-Section movement

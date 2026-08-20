@@ -34,7 +34,6 @@ const routineFigureSchema = z.object({
   figureNameEn: z.string().nullable(),
   figureVariantName: z.string().nullable(),
   figureVariantTimingNotation: z.string().nullable(),
-  done: z.boolean(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -199,17 +198,6 @@ export async function removeRoutineFigure(routineFigureId: string): Promise<void
     `/api/routine-figures/${routineFigureId}`,
     { method: 'DELETE' },
     z.object({ status: z.literal('ok') }),
-  );
-}
-
-export async function setRoutineFigureDone(
-  routineFigureId: string,
-  done: boolean,
-): Promise<RoutineFigure> {
-  return request(
-    `/api/routine-figures/${routineFigureId}/done`,
-    jsonPut({ done }),
-    routineFigureSchema,
   );
 }
 

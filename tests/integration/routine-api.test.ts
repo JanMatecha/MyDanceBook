@@ -25,7 +25,6 @@ import {
   RemoveRoutineFigureCommand,
   MoveRoutineSectionCommand,
   RenameRoutineSectionCommand,
-  SetRoutineFigureDoneCommand,
 } from '../../src/application/routine/routine-use-cases.js';
 import { createEntityId } from '../../src/domain/identity.js';
 import { resolveDataPaths } from '../../src/persistence/data-directories.js';
@@ -184,15 +183,6 @@ describe('Routine notebook API', () => {
       (
         await app.inject({
           method: 'PUT',
-          url: `/api/routine-figures/${first.id}/done`,
-          payload: { done: true },
-        })
-      ).statusCode,
-    ).toBe(200);
-    expect(
-      (
-        await app.inject({
-          method: 'PUT',
           url: `/api/routine-figures/${first.id}/section`,
           payload: { routineSectionId: thirdSection.id },
         })
@@ -233,7 +223,6 @@ describe('Routine notebook API', () => {
           position: 1,
           figureId: naturalTurn.id,
           figureVariantId: naturalTurn.variants[0].id,
-          done: true,
         }),
         expect.objectContaining({
           id: second.id,
@@ -241,7 +230,6 @@ describe('Routine notebook API', () => {
           position: 1,
           figureNameEn: 'Reverse Turn',
           figureVariantName: 'Výchozí varianta',
-          done: false,
         }),
         expect.objectContaining({
           id: third.id,
@@ -249,10 +237,14 @@ describe('Routine notebook API', () => {
           position: 1,
           figureId: null,
           figureVariantId: null,
-          done: false,
         }),
       ]),
     );
+    expect(
+      capturedRoutineFigures.every(
+        (routineFigure: Record<string, unknown>) => !('done' in routineFigure),
+      ),
+    ).toBe(true);
 
     await app.close();
     persistence.close();
@@ -510,7 +502,6 @@ async function buildNotebookServer(persistence: PersistenceContext) {
       moveRoutineFigure: new MoveRoutineFigureCommand(routines),
       moveRoutineFigureToSection: new MoveRoutineFigureToSectionCommand(routines),
       removeRoutineFigure: new RemoveRoutineFigureCommand(routines),
-      setRoutineFigureDone: new SetRoutineFigureDoneCommand(routines),
     },
   });
 }

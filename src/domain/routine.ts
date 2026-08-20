@@ -27,7 +27,6 @@ export interface RoutineFigure {
   readonly figureNameEn: string | null;
   readonly figureVariantName: string | null;
   readonly figureVariantTimingNotation: string | null;
-  readonly done: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

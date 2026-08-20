@@ -621,19 +621,6 @@
   overflow-wrap: anywhere;
 }
 
-.doneState {
-  justify-self: end;
-  min-width: 0;
-  max-width: 100%;
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-  color: var(--color-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 .routineFigureControls {
   display: grid;
   gap: var(--space-sm);
@@ -750,10 +737,5 @@
   .occurrenceTitle {
     grid-template-columns: 1.7rem minmax(0, 1fr);
     align-items: start;
-  }
-
-  .doneState {
-    grid-column: 2;
-    justify-self: start;
   }
 }
