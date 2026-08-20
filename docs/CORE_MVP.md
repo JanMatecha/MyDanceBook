@@ -37,7 +37,7 @@ This document is authoritative for the first usable release. “Core MVP” mean
 - The `+ Figure` flow supports adding a placeholder, searching existing Figures, selecting a variant, or creating a missing Figure inline with a Czech name, English name, or both.
 - Inline creation uses the Routine's Dance, creates the first variant, assigns it immediately, and keeps the user in the Routine.
 - Reordering, inserting, and moving occurrences between Sections do not change stable IDs; displayed global numbers are derived by flattening the hierarchy.
-- Each occurrence owns a manual Done flag and contextual data only. Core MVP has no generic RoutineFigure technical override.
+- Each occurrence owns contextual data only. Core MVP has no generic RoutineFigure technical override.
 - An optional expected total count supports manual progress independent of technical completeness.
 
 ### Sections and Etudes
@@ -54,7 +54,7 @@ This document is authoritative for the first usable release. “Core MVP” mean
 - The detail surface unmistakably separates “Shared definition – changes apply everywhere this variant is used” from “This occurrence in the routine.”
 - Shared editing requires no extra unlock step.
 - Central edits become visible in every referencing occurrence.
-- Local area contains occurrence notes, Done, and routine/section context—never a hidden copy of central technique.
+- Local area contains occurrence notes and routine/section context—never a hidden copy of central technique.
 
 ### Notes and lightweight sources
 
@@ -108,7 +108,7 @@ This document is authoritative for the first usable release. “Core MVP” mean
 
 ### Safe everyday operation
 
-- The UI is Czech and responsive in one browser application. Notebook is the full editor; tablet and phone support browsing, notes, Done, simple edits, and review.
+- The UI is Czech and responsive in one browser application. Notebook is the full editor; tablet and phone support browsing, notes, simple edits, and review.
 - Core MVP requires a live connection to its backend.
 - Changes autosave to SQLite.
 - Two members can use the application simultaneously and see ephemeral informational presence warnings identified by session/profile/object and stale expiry; no object is hard-locked and presence is not authentication.
@@ -128,7 +128,7 @@ These improve the first release but may be reduced if they threaten the complete
 - optional thin orientation markers at Step starts;
 - simple connection summaries between adjacent RoutineFigures;
 - keyboard-efficient quick entry on notebook;
-- a rough technical coverage indicator only if it stays explicitly separate from Done and cannot be misread as dance knowledge percentage.
+- a rough technical coverage indicator only if it cannot be misread as dance knowledge percentage.
 
 ## NOT IN CORE MVP
 
@@ -188,7 +188,7 @@ All examples below use fictional user-entered content and assert product behavio
 
 ### 10. Use the application during training on phone
 
-**Given** the backend is reachable, **when** a member opens the same Routine on a phone, **then** they can browse it, add a correctly scoped note, change Done, and perform simple edits without a separate mobile app.
+**Given** the backend is reachable, **when** a member opens the same Routine on a phone, **then** they can browse it, add a correctly scoped note, and perform simple edits without a separate mobile app.
 
 ### 11. Detect a non-blocking inconsistency
 

@@ -195,15 +195,4 @@ export class RemoveRoutineFigureCommand {
   }
 }
 
-export class SetRoutineFigureDoneCommand {
-  public constructor(
-    private readonly routines: RoutineRepository,
-    private readonly now: () => Date = () => new Date(),
-  ) {}
-
-  public execute(routineFigureId: EntityId, done: boolean): RoutineFigure | null {
-    return this.routines.setDone(routineFigureId, done, this.now().toISOString());
-  }
-}
-
 export type { FigureWithVariants };

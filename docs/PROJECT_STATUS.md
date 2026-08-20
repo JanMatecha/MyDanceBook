@@ -13,8 +13,8 @@ state; do not append history or session notes here.
 - Phase 2 Waltz Pilot – First Real Routine: generic persisted Figure and
   FigureVariant creation with an automatic first empty variant; Dance-scoped
   Routines; stable ordered RoutineFigures supporting placeholders, Figure or
-  FigureVariant references, inline Figure creation and assignment, and manual
-  Done. The Czech notebook UI supports quick Waltz routine capture and reloads
+  FigureVariant references and inline Figure creation and assignment. The Czech
+  notebook UI supports quick Waltz routine capture and reloads
   the same saved data after restart; no real user figures or routines are
   seeded.
 - Waltz Pilot usability pass: RoutineFigures render as compact ordered rows
@@ -43,7 +43,7 @@ state; do not append history or session notes here.
   Sections without losing identity or data; and global display numbers are
   derived by flattening the persisted hierarchy. Migration 0004 safely places
   existing flat occurrences under one initial Section while preserving their
-  IDs, references, Done values, order, and timestamps.
+  IDs, references, order, and timestamps.
 - Safe SQLite persistence foundations, versioned migrations, backup primitive,
   Docker/runtime checks, and the React/Vite + Fastify application shell. The
   first post-Pair schema migration requires a verified pre-migration backup and

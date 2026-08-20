@@ -15,7 +15,6 @@ import {
   updateFigureNames,
   updateFigureVariantTiming,
   renameRoutineSection,
-  setRoutineFigureDone,
   type DanceNotebook,
   type RoutineSection,
   type RoutineFigure,
@@ -506,14 +505,6 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
                             setSelectedRoutineFigureId(null);
                           }, 'Figura byla odebraná ze sestavy.');
                         }}
-                        onDone={(routineFigureId, done) =>
-                          runChange(
-                            () => setRoutineFigureDone(routineFigureId, done).then(() => undefined),
-                            done
-                              ? 'Výskyt je označený jako hotový.'
-                              : 'Výskyt už není označený jako hotový.',
-                          )
-                        }
                       />
                     ))}
                   </div>
@@ -631,8 +622,7 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
             <h2>Tento výskyt v sestavě</h2>
             {selectedRoutineFigure ? (
               <p>
-                Číslo {selectedRoutineFigureEntry?.displayPosition} ·{' '}
-                {selectedRoutineFigure.done ? 'hotovo' : 'rozpracováno'}
+                Číslo {selectedRoutineFigureEntry?.displayPosition}
                 {selectedRoutineFigureEntry &&
                   ` · ${selectedRoutineFigureEntry.routineSection.name}`}
               </p>
@@ -698,7 +688,6 @@ function RoutineSectionBlock({
   onMoveFigure,
   onMoveToSection,
   onRemove,
-  onDone,
 }: {
   readonly routineSection: RoutineSection;
   readonly sectionIndex: number;
@@ -730,7 +719,6 @@ function RoutineSectionBlock({
   ) => Promise<void>;
   readonly onMoveToSection: (routineFigureId: string, routineSectionId: string) => Promise<void>;
   readonly onRemove: (routineFigureId: string) => void;
-  readonly onDone: (routineFigureId: string, done: boolean) => Promise<void>;
 }) {
   async function submitRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -823,7 +811,6 @@ function RoutineSectionBlock({
                 onMoveToSection(routineFigure.id, routineSectionId)
               }
               onRemove={() => onRemove(routineFigure.id)}
-              onDone={(done) => onDone(routineFigure.id, done)}
             />
           ))}
         </ol>
@@ -860,7 +847,6 @@ function RoutineFigureRow({
   onMoveDown,
   onMoveToSection,
   onRemove,
-  onDone,
 }: {
   readonly routineFigure: RoutineFigure;
   readonly displayPosition: number;
@@ -882,7 +868,6 @@ function RoutineFigureRow({
   readonly onMoveDown: () => Promise<void>;
   readonly onMoveToSection: (routineSectionId: string) => Promise<void>;
   readonly onRemove: () => void;
-  readonly onDone: (done: boolean) => Promise<void>;
 }) {
   const [showQuickCreate, setShowQuickCreate] = useState(!routineFigure.figureId);
   const selectedFigure = figures.find((figure) => figure.id === routineFigure.figureId) ?? null;
@@ -941,7 +926,6 @@ function RoutineFigureRow({
             )}
           {effectiveVariant?.timingNotation && <small>{effectiveVariant.timingNotation}</small>}
         </span>
-        <span className={styles.doneState}>{routineFigure.done ? 'Hotovo' : 'Rozpracováno'}</span>
       </button>
       {editable && selected && (
         <div className={styles.routineFigureControls}>
@@ -1035,15 +1019,6 @@ function RoutineFigureRow({
             >
               Dolů
             </button>
-            <label>
-              <input
-                type="checkbox"
-                checked={routineFigure.done}
-                disabled={saving}
-                onChange={(event) => void onDone(event.target.checked)}
-              />{' '}
-              Hotovo
-            </label>
           </div>
         </div>
       )}

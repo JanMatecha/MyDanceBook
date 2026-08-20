@@ -18,7 +18,6 @@ import {
   RemoveRoutineFigureCommand,
   MoveRoutineSectionCommand,
   RenameRoutineSectionCommand,
-  SetRoutineFigureDoneCommand,
 } from '../../application/routine/routine-use-cases.js';
 import { InvalidFigureNameError } from '../../domain/figure.js';
 import { parseEntityId } from '../../domain/identity.js';
@@ -45,7 +44,6 @@ const assignmentSchema = z
 const moveSchema = z.object({ beforeRoutineFigureId: entityIdSchema.nullable() }).strict();
 const moveSectionSchema = z.object({ beforeRoutineSectionId: entityIdSchema.nullable() }).strict();
 const targetSectionSchema = z.object({ routineSectionId: entityIdSchema }).strict();
-const doneSchema = z.object({ done: z.boolean() }).strict();
 
 const danceSchema = z.object({
   id: z.string().uuid(),
@@ -81,7 +79,6 @@ const routineFigureSchema = z.object({
   figureNameEn: z.string().nullable(),
   figureVariantName: z.string().nullable(),
   figureVariantTimingNotation: z.string().nullable(),
-  done: z.boolean(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -125,7 +122,6 @@ export interface NotebookRouteServices {
   readonly moveRoutineFigure: MoveRoutineFigureCommand;
   readonly moveRoutineFigureToSection: MoveRoutineFigureToSectionCommand;
   readonly removeRoutineFigure: RemoveRoutineFigureCommand;
-  readonly setRoutineFigureDone: SetRoutineFigureDoneCommand;
 }
 
 export function registerNotebookRoutes(
@@ -336,19 +332,6 @@ export function registerNotebookRoutes(
         .send(notFound('routine_figure_not_found', 'Výskyt figury nebyl nalezen.'));
     }
     return reply.code(200).send({ status: 'ok' });
-  });
-
-  app.put('/api/routine-figures/:routineFigureId/done', async (request, reply) => {
-    const routineFigureId = readId(routineFigureParamsSchema.safeParse(request.params), reply);
-    const input = doneSchema.safeParse(request.body);
-    if (!routineFigureId || !input.success) return sendInvalidRequest(reply);
-    const routineFigure = services.setRoutineFigureDone.execute(routineFigureId, input.data.done);
-    if (!routineFigure) {
-      return reply
-        .code(404)
-        .send(notFound('routine_figure_not_found', 'Výskyt figury nebyl nalezen.'));
-    }
-    return reply.code(200).send(routineFigureSchema.parse(routineFigure));
   });
 }
 

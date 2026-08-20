@@ -131,6 +131,7 @@ describe('RoutineSection hierarchy migration', () => {
 
     await copyMigration('0004_routine_sections.sql', migrationsDirectory);
     await copyMigration('0005_figure_names_and_variant_timing.sql', migrationsDirectory);
+    await copyMigration('0006_remove_routine_figure_done.sql', migrationsDirectory);
     let backupPath: string | undefined;
     let backupCalls = 0;
     const result = await runMigrations({
@@ -147,8 +148,8 @@ describe('RoutineSection hierarchy migration', () => {
       },
     });
 
-    expect(result.appliedVersions).toEqual([4, 5]);
-    expect(backupCalls).toBe(2);
+    expect(result.appliedVersions).toEqual([4, 5, 6]);
+    expect(backupCalls).toBe(3);
     expect(
       database
         .prepare(
@@ -182,7 +183,7 @@ describe('RoutineSection hierarchy migration', () => {
     const migratedOccurrences = database
       .prepare(
         `SELECT routine_figures.id, routine_sections.routine_id, routine_figures.position,
-                routine_figures.figure_id, routine_figures.figure_variant_id, routine_figures.done,
+                routine_figures.figure_id, routine_figures.figure_variant_id,
                 routine_figures.created_at, routine_figures.updated_at
          FROM routine_figures
          JOIN routine_sections ON routine_sections.id = routine_figures.section_id
@@ -197,7 +198,6 @@ describe('RoutineSection hierarchy migration', () => {
           position: 1,
           figure_id: ids.waltzFigure,
           figure_variant_id: null,
-          done: 0,
           created_at: createdAt,
           updated_at: createdAt,
         },
@@ -207,7 +207,6 @@ describe('RoutineSection hierarchy migration', () => {
           position: 2,
           figure_id: ids.waltzFigure,
           figure_variant_id: ids.waltzVariant,
-          done: 1,
           created_at: createdAt,
           updated_at: updatedAt,
         },
@@ -217,7 +216,6 @@ describe('RoutineSection hierarchy migration', () => {
           position: 3,
           figure_id: null,
           figure_variant_id: null,
-          done: 0,
         }),
         expect.objectContaining({
           id: ids.tangoFirst,
@@ -225,7 +223,6 @@ describe('RoutineSection hierarchy migration', () => {
           position: 1,
           figure_id: ids.tangoFigure,
           figure_variant_id: ids.tangoVariant,
-          done: 1,
         }),
         expect.objectContaining({
           id: ids.tangoSecond,
@@ -233,7 +230,6 @@ describe('RoutineSection hierarchy migration', () => {
           position: 2,
           figure_id: null,
           figure_variant_id: null,
-          done: 0,
         }),
       ]),
     );
@@ -247,7 +243,6 @@ describe('RoutineSection hierarchy migration', () => {
       'position',
       'figure_id',
       'figure_variant_id',
-      'done',
       'created_at',
       'updated_at',
     ]);
@@ -257,9 +252,12 @@ describe('RoutineSection hierarchy migration', () => {
     expect(backupPath).toBeDefined();
     const backup = new Database(backupPath!, { readonly: true, fileMustExist: true });
     expect(backup.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({
-      version: 4,
+      version: 5,
     });
     expect(backup.prepare('SELECT id FROM routine_figures').all()).toHaveLength(5);
+    expect(backup.prepare('SELECT DISTINCT done FROM routine_figures ORDER BY done').all()).toEqual(
+      [{ done: 0 }, { done: 1 }],
+    );
     backup.close();
 
     database.close();

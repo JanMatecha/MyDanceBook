@@ -62,5 +62,4 @@ export interface RoutineRepository {
     updatedAt: string,
   ): RoutineFigureMoveResult;
   remove(routineFigureId: EntityId, updatedAt: string): RoutineFigureRemoveResult;
-  setDone(routineFigureId: EntityId, done: boolean, updatedAt: string): RoutineFigure | null;
 }

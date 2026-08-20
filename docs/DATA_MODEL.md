@@ -50,7 +50,7 @@ The `Figure → FigureVariant → RoutineFigure reference` chain is the central 
 - `Figure` and `FigureVariant` are central reusable knowledge;
 - `RoutineFigure` is one stable occurrence in a Routine;
 - central edits are visible in every reference;
-- occurrence-specific Done, Notes, and placement context stay on the RoutineFigure within its Section;
+- occurrence-specific Notes and placement context stay on the RoutineFigure within its Section;
 - a structurally different execution is another FigureVariant, not an override.
 
 ## Pair, profiles, and dance catalogue
@@ -196,7 +196,6 @@ A Routine has `1..N` Sections. Creating a Routine transactionally creates the fi
 | `orderKey` | required | Stable ordering value within the Section |
 | `figureId` | optional | Allows placeholder or Figure-only state |
 | `figureVariantId` | optional | Concrete central variant reference |
-| `done` | required/default false | Manual occurrence progress only |
 
 `figureVariantId`, when present, must identify a child of `figureId`; both must belong to the owning Section's Routine Dance. A placeholder has neither. An implementation may derive `figureId` from the variant reference physically, but the API must expose the three conceptual states without contradiction. The displayed global Figure number is derived by flattening Section order and Section-local occurrence order; it is not persisted as another canonical position.
 
@@ -206,7 +205,7 @@ RoutineFigure contains no generic fields for alternative steps, timing, technica
 
 `Etude` is a separate aggregate with required `discipline` (`STANDARD` or `LATIN`) and `name`, fixed `isCyclic = true`, and optional `timingSchemeId`. That Scheme is contextual training timing only; it never overrides canonical timing on a referenced FigureVariant. An ambiguous or unavailable conversion yields `CANNOT_YET_VERIFY`, never guessed values. See [ADR 0008](adr/0008-etude-timing-context.md).
 
-An ordered `EtudeFigure` occurrence is required conceptually to represent placeholders and references without inventing an Etude-specific knowledge library. It has stable ID, `orderKey`, optional Figure, optional FigureVariant, and no technical override. Generic Notes may attach to it, but Core MVP does not extend the RoutineFigure-specific Done requirement to EtudeFigure. A linked Figure's Dance must match the Etude discipline. Whether RoutineFigure and EtudeFigure share a physical occurrence table is deferred; their conceptual container rules remain distinct.
+An ordered `EtudeFigure` occurrence is required conceptually to represent placeholders and references without inventing an Etude-specific knowledge library. It has stable ID, `orderKey`, optional Figure, optional FigureVariant, and no technical override. Generic Notes may attach to it. A linked Figure's Dance must match the Etude discipline. Whether RoutineFigure and EtudeFigure share a physical occurrence table is deferred; their conceptual container rules remain distinct.
 
 ## Common timeline and timing entities
 

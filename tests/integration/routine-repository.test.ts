@@ -17,7 +17,6 @@ import {
   RemoveRoutineFigureCommand,
   MoveRoutineSectionCommand,
   RenameRoutineSectionCommand,
-  SetRoutineFigureDoneCommand,
 } from '../../src/application/routine/routine-use-cases.js';
 import { createEntityId } from '../../src/domain/identity.js';
 import { resolveDataPaths } from '../../src/persistence/data-directories.js';
@@ -37,7 +36,7 @@ describe('SQLite Figure and Routine repositories', () => {
     await Promise.all(temporaryDirectories.splice(0).map(removeTemporaryDirectory));
   });
 
-  it('persists a hierarchical routine with central references, placeholders, stable occurrence IDs, order and Done after reopen', async () => {
+  it('persists a hierarchical routine with central references, placeholders, stable occurrence IDs and order after reopen', async () => {
     const root = await createTemporaryDirectory('routine-repository');
     temporaryDirectories.push(root);
     const paths = resolveDataPaths(root);
@@ -114,7 +113,6 @@ describe('SQLite Figure and Routine repositories', () => {
       }),
     ).toBe('updated');
     expect(new MoveRoutineFigureCommand(routines).execute(third.id, first.id)).toBe('moved');
-    expect(new SetRoutineFigureDoneCommand(routines).execute(first.id, true)?.done).toBe(true);
 
     const beforeRestart = routines.listByDance(waltz.id)[0];
     expect(beforeRestart?.sections[0]?.routineFigures.map((item) => item.id)).toEqual([
@@ -133,13 +131,11 @@ describe('SQLite Figure and Routine repositories', () => {
       id: first.id,
       figureId: naturalTurn.id,
       figureVariantId: naturalTurn.variants[0]?.id,
-      done: true,
     });
     expect(beforeRestart?.sections[0]?.routineFigures[2]).toMatchObject({
       id: second.id,
       figureNameEn: 'Reverse Turn',
       figureVariantName: 'Výchozí varianta',
-      done: false,
     });
     expect(figures.listByDance(waltz.id)).toHaveLength(2);
 
@@ -195,7 +191,6 @@ describe('SQLite Figure and Routine repositories', () => {
     expect(
       new AssignRoutineFigureCommand(routines).execute(occurrence.id, figure.id, variantId),
     ).toBe('updated');
-    expect(new SetRoutineFigureDoneCommand(routines).execute(occurrence.id, true)?.done).toBe(true);
 
     expect(
       new RenameRoutineSectionCommand(routines).execute(firstSection.id, 'První dlouhá strana'),
@@ -210,7 +205,6 @@ describe('SQLite Figure and Routine repositories', () => {
       sectionId: firstSection.id,
       figureId: figure.id,
       figureVariantId: variantId,
-      done: true,
     });
     expect(
       new MoveRoutineFigureToSectionCommand(routines).execute(occurrence.id, secondSection.id),
@@ -227,7 +221,6 @@ describe('SQLite Figure and Routine repositories', () => {
         position: 1,
         figureId: figure.id,
         figureVariantId: variantId,
-        done: true,
         createdAt: occurrence.createdAt,
       }),
     ]);

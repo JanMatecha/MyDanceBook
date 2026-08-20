@@ -35,7 +35,7 @@ The product remains one responsive web application.
 | Tablet | Drawer or compact rail | Primary surface | Side sheet or adjacent pane where space permits |
 | Phone | Full-screen drawer | Full-screen list/floor mode | Full-screen detail route/sheet with clear Back |
 
-Phone Core-MVP flows include browsing, adding a Note, toggling Done, simple text or selection edits, and reviewing timing/technique. Complex numeric trajectory or dense timeline editors may use simplified forms and horizontal subviews. Selection, unsaved edit state, and Back behavior must remain predictable.
+Phone Core-MVP flows include browsing, adding a Note, simple text or selection edits, and reviewing timing/technique. Complex numeric trajectory or dense timeline editors may use simplified forms and horizontal subviews. Selection, unsaved edit state, and Back behavior must remain predictable.
 
 There is no offline mode. Loss of backend connection is shown explicitly; the UI must not pretend an unsaved change was persisted.
 
@@ -107,7 +107,7 @@ The right detail surface always displays scope before fields:
 
 ┌ This occurrence in the routine ──────────────────────┐
 │ Only this stable occurrence                          │
-│ Done, local notes, section and placement context     │
+│ Local notes, section and placement context           │
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -166,7 +166,7 @@ The baseline configurable catalogue is:
 
 Standard and Latin templates provide different default visibility and order only. The pair can show/hide and reorder predefined sections. Core MVP does not provide arbitrary custom section or field construction.
 
-Each section can summarize completeness with neutral states such as empty, partial, exact, or review needed. These states never become the manual Done flag.
+Each section can summarize completeness with neutral states such as empty, partial, exact, or review needed.
 
 ## Timing interaction
 

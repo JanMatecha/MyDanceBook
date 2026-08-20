@@ -98,7 +98,6 @@ function occurrence(id: string, position: number) {
     figureNameEn: null,
     figureVariantName: null,
     figureVariantTimingNotation: null,
-    done: false,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
