@@ -21,7 +21,7 @@ This document is authoritative for the first usable release. “Core MVP” mean
 
 ### Figures and variants
 
-- A Figure can be created with only Dance and name.
+- A Figure can be created with Dance plus a Czech name, English name, or both; at least one non-blank name is required.
 - Figure identity includes Dance.
 - Figure creation atomically creates its first FigureVariant and does not require the user to name that single variant manually.
 - A FigureVariant is one reusable whole-couple execution with visibly and structurally separate couple, Leader, and Follower data.
@@ -34,7 +34,7 @@ This document is authoritative for the first usable release. “Core MVP” mean
 - A Routine can be created with only Dance and name; its first Section is created automatically as `Část 1`, while Floor, expected figure count, timing anchor, start placement, and notes remain optional.
 - Each RoutineFigure has a stable ID, belongs to exactly one RoutineSection, and has one position within that Section.
 - An occurrence can be a placeholder, reference a Figure only, or reference a FigureVariant.
-- The `+ Figure` flow supports adding a placeholder, searching existing Figures, selecting a variant, or creating a missing Figure inline with only a name.
+- The `+ Figure` flow supports adding a placeholder, searching existing Figures, selecting a variant, or creating a missing Figure inline with a Czech name, English name, or both.
 - Inline creation uses the Routine's Dance, creates the first variant, assigns it immediately, and keeps the user in the Routine.
 - Reordering, inserting, and moving occurrences between Sections do not change stable IDs; displayed global numbers are derived by flattening the hierarchy.
 - Each occurrence owns a manual Done flag and contextual data only. Core MVP has no generic RoutineFigure technical override.
@@ -79,6 +79,8 @@ This document is authoritative for the first usable release. “Core MVP” mean
 - Standard and Latin technical templates control emphasis and order, not domain validity.
 
 ### Timing
+
+- A FigureVariant may retain optional authored `timingNotation` for readable shorthand. It is not parsed or used for exact duration or timing inference.
 
 - Precise event timing uses exact rational counts of the beat unit defined by the FigureVariant's optional TimingScheme. `1/1` is one Scheme beat and `3/2` is one and one-half; floating point is not canonical.
 - TimingScheme defines its musical beat unit and complete `barLength` in those beat units, plus reusable meter, notation, and optional nominal tempo conventions without permanent one-to-one Dance coupling.

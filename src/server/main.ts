@@ -1,7 +1,8 @@
 import { GetAppStateQuery } from '../application/app-state/get-app-state.js';
 import {
   CreateFigureCommand,
-  RenameFigureCommand,
+  UpdateFigureNamesCommand,
+  UpdateFigureVariantTimingCommand,
 } from '../application/figure/figure-use-cases.js';
 import { GetHealthQuery } from '../application/health/get-health.js';
 import {
@@ -17,6 +18,7 @@ import {
   CreateRoutineSectionCommand,
   MoveRoutineFigureCommand,
   MoveRoutineFigureToSectionCommand,
+  RemoveRoutineFigureCommand,
   MoveRoutineSectionCommand,
   RenameRoutineSectionCommand,
   SetRoutineFigureDoneCommand,
@@ -55,7 +57,8 @@ async function main(): Promise<void> {
           routineRepository,
         ),
         createFigure: new CreateFigureCommand(figureRepository),
-        renameFigure: new RenameFigureCommand(figureRepository),
+        updateFigureNames: new UpdateFigureNamesCommand(figureRepository),
+        updateFigureVariantTiming: new UpdateFigureVariantTimingCommand(figureRepository),
         createRoutine: new CreateRoutineCommand(routineRepository),
         createRoutineSection: new CreateRoutineSectionCommand(routineRepository),
         renameRoutineSection: new RenameRoutineSectionCommand(routineRepository),
@@ -65,6 +68,7 @@ async function main(): Promise<void> {
         createFigureForRoutineFigure: new CreateFigureForRoutineFigureCommand(routineRepository),
         moveRoutineFigure: new MoveRoutineFigureCommand(routineRepository),
         moveRoutineFigureToSection: new MoveRoutineFigureToSectionCommand(routineRepository),
+        removeRoutineFigure: new RemoveRoutineFigureCommand(routineRepository),
         setRoutineFigureDone: new SetRoutineFigureDoneCommand(routineRepository),
       },
       staticRoot: config.staticRoot,

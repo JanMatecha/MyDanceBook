@@ -1,6 +1,6 @@
 import {
   defaultFigureVariantName,
-  toFigureName,
+  toFigureNames,
   type FigureWithVariants,
 } from '../../domain/figure.js';
 import { createEntityId, type EntityId } from '../../domain/identity.js';
@@ -16,6 +16,7 @@ import type { NewFigureRecord } from '../figure/figure-repository.js';
 import type {
   RoutineFigureAssignmentResult,
   RoutineFigureMoveResult,
+  RoutineFigureRemoveResult,
   RoutineRepository,
   RoutineSectionMoveResult,
 } from './routine-repository.js';
@@ -149,11 +150,14 @@ export class CreateFigureForRoutineFigureCommand {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  public execute(routineFigureId: EntityId, name: string): RoutineFigureAssignmentResult {
+  public execute(
+    routineFigureId: EntityId,
+    names: { readonly nameCs: string | null; readonly nameEn: string | null },
+  ): RoutineFigureAssignmentResult {
     const createdAt = this.now().toISOString();
     const figure: Omit<NewFigureRecord, 'danceId'> = {
       id: this.createId(),
-      name: toFigureName(name),
+      ...toFigureNames(names),
       firstVariantId: this.createId(),
       firstVariantName: defaultFigureVariantName,
       createdAt,
@@ -177,6 +181,17 @@ export class MoveRoutineFigureCommand {
       beforeRoutineFigureId,
       this.now().toISOString(),
     );
+  }
+}
+
+export class RemoveRoutineFigureCommand {
+  public constructor(
+    private readonly routines: RoutineRepository,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  public execute(routineFigureId: EntityId): RoutineFigureRemoveResult {
+    return this.routines.remove(routineFigureId, this.now().toISOString());
   }
 }
 

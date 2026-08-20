@@ -11,13 +11,15 @@ const figureVariantSchema = z.object({
   id: z.string().uuid(),
   figureId: z.string().uuid(),
   name: z.string(),
+  timingNotation: z.string().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
 const figureSchema = z.object({
   id: z.string().uuid(),
   danceId: z.string().uuid(),
-  name: z.string(),
+  nameCs: z.string().nullable(),
+  nameEn: z.string().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
   variants: z.array(figureVariantSchema).min(1),
@@ -28,8 +30,10 @@ const routineFigureSchema = z.object({
   position: z.number().int().min(1),
   figureId: z.string().uuid().nullable(),
   figureVariantId: z.string().uuid().nullable(),
-  figureName: z.string().nullable(),
+  figureNameCs: z.string().nullable(),
+  figureNameEn: z.string().nullable(),
   figureVariantName: z.string().nullable(),
+  figureVariantTimingNotation: z.string().nullable(),
   done: z.boolean(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -73,12 +77,31 @@ export async function getDanceNotebook(
   return request(`/api/dances/${danceId}/notebook`, undefined, notebookSchema, signal);
 }
 
-export async function createFigure(danceId: string, name: string): Promise<Figure> {
-  return request(`/api/dances/${danceId}/figures`, jsonPost({ name }), figureSchema);
+export interface FigureNamesInput {
+  readonly nameCs: string | null;
+  readonly nameEn: string | null;
 }
 
-export async function renameFigure(figureId: string, name: string): Promise<Figure> {
-  return request(`/api/figures/${figureId}/name`, jsonPut({ name }), figureSchema);
+export async function createFigure(danceId: string, names: FigureNamesInput): Promise<Figure> {
+  return request(`/api/dances/${danceId}/figures`, jsonPost(names), figureSchema);
+}
+
+export async function updateFigureNames(
+  figureId: string,
+  names: FigureNamesInput,
+): Promise<Figure> {
+  return request(`/api/figures/${figureId}/names`, jsonPut(names), figureSchema);
+}
+
+export async function updateFigureVariantTiming(
+  figureVariantId: string,
+  timingNotation: string | null,
+): Promise<Figure> {
+  return request(
+    `/api/figure-variants/${figureVariantId}/timing-notation`,
+    jsonPut({ timingNotation }),
+    figureSchema,
+  );
 }
 
 export async function createRoutine(danceId: string, name: string): Promise<Routine> {
@@ -151,11 +174,11 @@ export async function assignRoutineFigure(
 
 export async function createFigureForRoutineFigure(
   routineFigureId: string,
-  name: string,
+  names: FigureNamesInput,
 ): Promise<void> {
   await request(
     `/api/routine-figures/${routineFigureId}/figure`,
-    jsonPost({ name }),
+    jsonPost(names),
     z.object({ status: z.literal('ok') }),
   );
 }
@@ -167,6 +190,14 @@ export async function moveRoutineFigure(
   await request(
     `/api/routine-figures/${routineFigureId}/move`,
     jsonPost({ beforeRoutineFigureId }),
+    z.object({ status: z.literal('ok') }),
+  );
+}
+
+export async function removeRoutineFigure(routineFigureId: string): Promise<void> {
+  await request(
+    `/api/routine-figures/${routineFigureId}`,
+    { method: 'DELETE' },
     z.object({ status: z.literal('ok') }),
   );
 }

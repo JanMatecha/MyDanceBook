@@ -5,6 +5,7 @@ import type {
   NewRoutineSectionRecord,
   RoutineFigureAssignmentResult,
   RoutineFigureMoveResult,
+  RoutineFigureRemoveResult,
   RoutineRepository,
   RoutineSectionMoveResult,
 } from '../../application/routine/routine-repository.js';
@@ -41,8 +42,10 @@ interface RoutineFigureRow {
   readonly position: number;
   readonly figure_id: string | null;
   readonly figure_variant_id: string | null;
-  readonly figure_name: string | null;
+  readonly figure_name_cs: string | null;
+  readonly figure_name_en: string | null;
   readonly figure_variant_name: string | null;
+  readonly figure_variant_timing_notation: string | null;
   readonly done: number;
   readonly created_at: string;
   readonly updated_at: string;
@@ -85,7 +88,9 @@ export class SqliteRoutineRepository implements RoutineRepository {
       .prepare(
         `SELECT routine_figures.id, routine_figures.section_id, routine_figures.position,
                 routine_figures.figure_id, routine_figures.figure_variant_id,
-                figures.name AS figure_name, figure_variants.name AS figure_variant_name,
+                figures.name_cs AS figure_name_cs, figures.name_en AS figure_name_en,
+                figure_variants.name AS figure_variant_name,
+                figure_variants.timing_notation AS figure_variant_timing_notation,
                 routine_figures.done, routine_figures.created_at, routine_figures.updated_at
          FROM routine_figures
          JOIN routine_sections ON routine_sections.id = routine_figures.section_id
@@ -286,8 +291,10 @@ export class SqliteRoutineRepository implements RoutineRepository {
         position: position.position,
         figureId: null,
         figureVariantId: null,
-        figureName: null,
+        figureNameCs: null,
+        figureNameEn: null,
         figureVariantName: null,
+        figureVariantTimingNotation: null,
         done: false,
         createdAt: record.createdAt,
         updatedAt: record.createdAt,
@@ -305,7 +312,8 @@ export class SqliteRoutineRepository implements RoutineRepository {
     const assign = this.database.transaction(() => {
       const routineFigure = this.findRoutineFigureLocation(routineFigureId);
       if (!routineFigure) return 'not_found' as const;
-      if (!this.isValidAssignment(routineFigure.dance_id, figureId, figureVariantId)) {
+      const resolvedVariantId = this.resolveSoleVariantId(figureId, figureVariantId);
+      if (!this.isValidAssignment(routineFigure.dance_id, figureId, resolvedVariantId)) {
         return 'invalid_assignment' as const;
       }
       this.database
@@ -314,7 +322,7 @@ export class SqliteRoutineRepository implements RoutineRepository {
            SET figure_id = ?, figure_variant_id = ?, updated_at = ?
            WHERE id = ?`,
         )
-        .run(figureId, figureVariantId, updatedAt, routineFigureId);
+        .run(figureId, resolvedVariantId, updatedAt, routineFigureId);
       return 'updated' as const;
     });
     return assign();
@@ -330,14 +338,21 @@ export class SqliteRoutineRepository implements RoutineRepository {
       if (!routineFigure) return 'not_found' as const;
       this.database
         .prepare(
-          `INSERT INTO figures (id, dance_id, name, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO figures (id, dance_id, name_cs, name_en, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
         )
-        .run(figure.id, routineFigure.dance_id, figure.name, figure.createdAt, figure.createdAt);
+        .run(
+          figure.id,
+          routineFigure.dance_id,
+          figure.nameCs,
+          figure.nameEn,
+          figure.createdAt,
+          figure.createdAt,
+        );
       this.database
         .prepare(
-          `INSERT INTO figure_variants (id, figure_id, name, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO figure_variants (id, figure_id, name, timing_notation, created_at, updated_at)
+           VALUES (?, ?, ?, NULL, ?, ?)`,
         )
         .run(
           figure.firstVariantId,
@@ -441,6 +456,31 @@ export class SqliteRoutineRepository implements RoutineRepository {
     return move();
   }
 
+  public remove(routineFigureId: EntityId, updatedAt: string): RoutineFigureRemoveResult {
+    const remove = this.database.transaction(() => {
+      const current = this.findRoutineFigureLocation(routineFigureId);
+      if (!current) return 'not_found' as const;
+
+      this.database.prepare('DELETE FROM routine_figures WHERE id = ?').run(routineFigureId);
+      const remaining = this.database
+        .prepare(
+          `SELECT id, position FROM routine_figures
+           WHERE section_id = ? ORDER BY position`,
+        )
+        .all(current.section_id) as OrderedLocationRow[];
+      const setPosition = this.database.prepare(
+        'UPDATE routine_figures SET position = ?, updated_at = ? WHERE id = ?',
+      );
+      for (const [index, routineFigure] of remaining.entries()) {
+        if (routineFigure.position !== index + 1) {
+          setPosition.run(index + 1, updatedAt, routineFigure.id);
+        }
+      }
+      return 'removed' as const;
+    });
+    return remove();
+  }
+
   public setDone(
     routineFigureId: EntityId,
     done: boolean,
@@ -509,7 +549,9 @@ export class SqliteRoutineRepository implements RoutineRepository {
       .prepare(
         `SELECT routine_figures.id, routine_figures.section_id, routine_figures.position,
                 routine_figures.figure_id, routine_figures.figure_variant_id,
-                figures.name AS figure_name, figure_variants.name AS figure_variant_name,
+                figures.name_cs AS figure_name_cs, figures.name_en AS figure_name_en,
+                figure_variants.name AS figure_variant_name,
+                figure_variants.timing_notation AS figure_variant_timing_notation,
                 routine_figures.done, routine_figures.created_at, routine_figures.updated_at
          FROM routine_figures
          LEFT JOIN figures ON figures.id = routine_figures.figure_id
@@ -534,6 +576,17 @@ export class SqliteRoutineRepository implements RoutineRepository {
         .prepare('SELECT id FROM figure_variants WHERE id = ? AND figure_id = ?')
         .get(figureVariantId, figureId),
     );
+  }
+
+  private resolveSoleVariantId(
+    figureId: EntityId,
+    requestedVariantId: EntityId | null,
+  ): EntityId | null {
+    if (requestedVariantId !== null) return requestedVariantId;
+    const variants = this.database
+      .prepare('SELECT id FROM figure_variants WHERE figure_id = ? ORDER BY created_at, id LIMIT 2')
+      .all(figureId) as { id: string }[];
+    return variants.length === 1 ? requireEntityId(variants[0]?.id ?? '') : null;
   }
 }
 
@@ -565,8 +618,10 @@ function mapRoutineFigure(row: RoutineFigureRow): RoutineFigure {
     position: row.position,
     figureId: row.figure_id === null ? null : requireEntityId(row.figure_id),
     figureVariantId: row.figure_variant_id === null ? null : requireEntityId(row.figure_variant_id),
-    figureName: row.figure_name,
+    figureNameCs: row.figure_name_cs,
+    figureNameEn: row.figure_name_en,
     figureVariantName: row.figure_variant_name,
+    figureVariantTimingNotation: row.figure_variant_timing_notation,
     done: row.done === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

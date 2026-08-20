@@ -324,6 +324,33 @@
   color: var(--color-muted);
 }
 
+.figureLanguageSwitcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: calc(var(--space-lg) * -0.5) 0 var(--space-lg);
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.figureLanguageSwitcher button {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.38rem 0.65rem;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+.figureLanguageSwitcher button.profileActive {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+}
+
 .capturePanels {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -410,6 +437,17 @@
 .scopePanel small,
 .occurrenceTitle small {
   color: var(--color-muted);
+}
+
+.figureNames {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.figureNames strong,
+.figureNames small {
+  overflow-wrap: anywhere;
 }
 
 .routineToolbar {
