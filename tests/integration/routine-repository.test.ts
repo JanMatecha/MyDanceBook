@@ -11,7 +11,11 @@ import {
   AssignRoutineFigureCommand,
   CreateFigureForRoutineFigureCommand,
   CreateRoutineCommand,
+  CreateRoutineSectionCommand,
   MoveRoutineFigureCommand,
+  MoveRoutineFigureToSectionCommand,
+  MoveRoutineSectionCommand,
+  RenameRoutineSectionCommand,
   SetRoutineFigureDoneCommand,
 } from '../../src/application/routine/routine-use-cases.js';
 import { createEntityId } from '../../src/domain/identity.js';
@@ -32,7 +36,7 @@ describe('SQLite Figure and Routine repositories', () => {
     await Promise.all(temporaryDirectories.splice(0).map(removeTemporaryDirectory));
   });
 
-  it('persists a routine with central references, placeholders, stable occurrence IDs, order and Done after reopen', async () => {
+  it('persists a hierarchical routine with central references, placeholders, stable occurrence IDs, order and Done after reopen', async () => {
     const root = await createTemporaryDirectory('routine-repository');
     temporaryDirectories.push(root);
     const paths = resolveDataPaths(root);
@@ -60,10 +64,15 @@ describe('SQLite Figure and Routine repositories', () => {
       danceId: waltz.id,
       name: 'Waltz – naše sestava',
     });
+    expect(routine.sections).toEqual([
+      expect.objectContaining({ name: 'Část 1', position: 1, routineFigures: [] }),
+    ]);
+    const firstSection = routine.sections[0];
+    if (!firstSection) throw new Error('Výchozí část sestavy nebyla vytvořena.');
     const addPlaceholder = new AddRoutineFigurePlaceholderCommand(routines);
-    const first = addPlaceholder.execute(routine.id);
-    const second = addPlaceholder.execute(routine.id);
-    const third = addPlaceholder.execute(routine.id);
+    const first = addPlaceholder.execute(firstSection.id);
+    const second = addPlaceholder.execute(firstSection.id);
+    const third = addPlaceholder.execute(firstSection.id);
     expect(first && second && third).not.toBeNull();
     if (!first || !second || !third) throw new Error('Testovací výskyty nebyly vytvořeny.');
 
@@ -102,23 +111,25 @@ describe('SQLite Figure and Routine repositories', () => {
     expect(new SetRoutineFigureDoneCommand(routines).execute(first.id, true)?.done).toBe(true);
 
     const beforeRestart = routines.listByDance(waltz.id)[0];
-    expect(beforeRestart?.routineFigures.map((item) => item.id)).toEqual([
+    expect(beforeRestart?.sections[0]?.routineFigures.map((item) => item.id)).toEqual([
       third.id,
       first.id,
       second.id,
     ]);
-    expect(beforeRestart?.routineFigures.map((item) => item.position)).toEqual([1, 2, 3]);
-    expect(beforeRestart?.routineFigures[0]).toMatchObject({
+    expect(beforeRestart?.sections[0]?.routineFigures.map((item) => item.position)).toEqual([
+      1, 2, 3,
+    ]);
+    expect(beforeRestart?.sections[0]?.routineFigures[0]).toMatchObject({
       figureId: null,
       figureVariantId: null,
     });
-    expect(beforeRestart?.routineFigures[1]).toMatchObject({
+    expect(beforeRestart?.sections[0]?.routineFigures[1]).toMatchObject({
       id: first.id,
       figureId: naturalTurn.id,
       figureVariantId: naturalTurn.variants[0]?.id,
       done: true,
     });
-    expect(beforeRestart?.routineFigures[2]).toMatchObject({
+    expect(beforeRestart?.sections[0]?.routineFigures[2]).toMatchObject({
       id: second.id,
       figureName: 'Reverse Turn',
       figureVariantName: 'Výchozí varianta',
@@ -135,6 +146,101 @@ describe('SQLite Figure and Routine repositories', () => {
     expect(reloaded).toEqual(beforeRestart);
     expect(reopened.database.pragma('foreign_key_check')).toEqual([]);
     expect(reopened.database.pragma('integrity_check', { simple: true })).toBe('ok');
+    reopened.close();
+  });
+
+  it('creates, renames and reorders Sections and moves a stable occurrence into an empty Section', async () => {
+    const root = await createTemporaryDirectory('routine-sections');
+    temporaryDirectories.push(root);
+    const paths = resolveDataPaths(root);
+    const persistence = await initializePersistence({
+      paths,
+      migrationsDirectory: resolve('migrations'),
+    });
+    const waltz = new SqliteDanceCatalogue(persistence.database)
+      .list()
+      .find((dance) => dance.code === 'WALTZ');
+    if (!waltz) throw new Error('Testovací Waltz nebyl nalezen.');
+    const figures = new SqliteFigureRepository(persistence.database);
+    const routines = new SqliteRoutineRepository(persistence.database);
+    const figure = new CreateFigureCommand(figures).execute({
+      danceId: waltz.id,
+      name: 'Zášvih',
+    });
+    const routine = new CreateRoutineCommand(routines).execute({
+      danceId: waltz.id,
+      name: 'Waltz E',
+    });
+    const firstSection = routine.sections[0];
+    if (!firstSection) throw new Error('Výchozí část sestavy nebyla vytvořena.');
+    const createSection = new CreateRoutineSectionCommand(routines);
+    const secondSection = createSection.execute(routine.id, 'První krátká strana');
+    if (!secondSection) throw new Error('Druhá část sestavy nebyla vytvořena.');
+    const occurrence = new AddRoutineFigurePlaceholderCommand(routines).execute(firstSection.id);
+    const remainingOccurrence = new AddRoutineFigurePlaceholderCommand(routines).execute(
+      firstSection.id,
+    );
+    if (!occurrence || !remainingOccurrence) {
+      throw new Error('Testovací výskyty nebyly vytvořeny.');
+    }
+    const variantId = figure.variants[0]?.id;
+    if (!variantId) throw new Error('Výchozí varianta nebyla vytvořena.');
+    expect(
+      new AssignRoutineFigureCommand(routines).execute(occurrence.id, figure.id, variantId),
+    ).toBe('updated');
+    expect(new SetRoutineFigureDoneCommand(routines).execute(occurrence.id, true)?.done).toBe(true);
+
+    expect(
+      new RenameRoutineSectionCommand(routines).execute(firstSection.id, 'První dlouhá strana'),
+    ).toMatchObject({ id: firstSection.id, name: 'První dlouhá strana' });
+    expect(new MoveRoutineSectionCommand(routines).execute(secondSection.id, firstSection.id)).toBe(
+      'moved',
+    );
+
+    const beforeMove = routines.listByDance(waltz.id)[0]?.sections[1]?.routineFigures[0];
+    expect(beforeMove).toMatchObject({
+      id: occurrence.id,
+      sectionId: firstSection.id,
+      figureId: figure.id,
+      figureVariantId: variantId,
+      done: true,
+    });
+    expect(
+      new MoveRoutineFigureToSectionCommand(routines).execute(occurrence.id, secondSection.id),
+    ).toBe('moved');
+    const afterMove = routines.listByDance(waltz.id)[0];
+    expect(afterMove?.sections.map((section) => section.id)).toEqual([
+      secondSection.id,
+      firstSection.id,
+    ]);
+    expect(afterMove?.sections[0]?.routineFigures).toEqual([
+      expect.objectContaining({
+        id: occurrence.id,
+        sectionId: secondSection.id,
+        position: 1,
+        figureId: figure.id,
+        figureVariantId: variantId,
+        done: true,
+        createdAt: occurrence.createdAt,
+      }),
+    ]);
+    expect(afterMove?.sections[1]?.routineFigures).toEqual([
+      expect.objectContaining({
+        id: remainingOccurrence.id,
+        sectionId: firstSection.id,
+        position: 1,
+      }),
+    ]);
+
+    persistence.close();
+    const reopened = await initializePersistence({
+      paths,
+      migrationsDirectory: resolve('migrations'),
+    });
+    expect(new SqliteRoutineRepository(reopened.database).listByDance(waltz.id)[0]).toEqual(
+      afterMove,
+    );
+    expect(reopened.database.pragma('foreign_key_check')).toEqual([]);
     reopened.close();
   });
 
@@ -169,6 +275,43 @@ describe('SQLite Figure and Routine repositories', () => {
     persistence.close();
   });
 
+  it('rolls back Routine creation when its mandatory first Section cannot be inserted', async () => {
+    const root = await createTemporaryDirectory('routine-transaction');
+    temporaryDirectories.push(root);
+    const persistence = await initializePersistence({
+      paths: resolveDataPaths(root),
+      migrationsDirectory: resolve('migrations'),
+    });
+    const waltz = new SqliteDanceCatalogue(persistence.database)
+      .list()
+      .find((dance) => dance.code === 'WALTZ');
+    if (!waltz) throw new Error('Testovací Waltz nebyl nalezen.');
+    const routines = new SqliteRoutineRepository(persistence.database);
+    const existing = new CreateRoutineCommand(routines).execute({
+      danceId: waltz.id,
+      name: 'Existující sestava',
+    });
+    const duplicateSectionId = existing.sections[0]?.id;
+    if (!duplicateSectionId) throw new Error('Výchozí část sestavy nebyla vytvořena.');
+    const rejectedRoutineId = createEntityId();
+
+    expect(() =>
+      routines.create({
+        id: rejectedRoutineId,
+        danceId: waltz.id,
+        name: 'Neuložená sestava',
+        firstSectionId: duplicateSectionId,
+        firstSectionName: 'Část 1',
+        createdAt: '2026-08-19T08:00:00.000Z',
+      }),
+    ).toThrow();
+    expect(
+      persistence.database.prepare('SELECT id FROM routines WHERE id = ?').get(rejectedRoutineId),
+    ).toBeUndefined();
+    expect(routines.listByDance(waltz.id).map((routine) => routine.id)).toEqual([existing.id]);
+    persistence.close();
+  });
+
   it('renames a central Figure without changing its variants or RoutineFigure references after reopen', async () => {
     const root = await createTemporaryDirectory('figure-rename-repository');
     temporaryDirectories.push(root);
@@ -192,8 +335,10 @@ describe('SQLite Figure and Routine repositories', () => {
       danceId: waltz.id,
       name: 'Trénink',
     });
-    const first = new AddRoutineFigurePlaceholderCommand(routines).execute(routine.id);
-    const second = new AddRoutineFigurePlaceholderCommand(routines).execute(routine.id);
+    const sectionId = routine.sections[0]?.id;
+    if (!sectionId) throw new Error('Výchozí část sestavy nebyla vytvořena.');
+    const first = new AddRoutineFigurePlaceholderCommand(routines).execute(sectionId);
+    const second = new AddRoutineFigurePlaceholderCommand(routines).execute(sectionId);
     if (!first || !second) throw new Error('Testovací výskyty nebyly vytvořeny.');
     const variantId = figure.variants[0]?.id;
     if (!variantId) throw new Error('Výchozí varianta nebyla vytvořena.');
@@ -210,7 +355,7 @@ describe('SQLite Figure and Routine repositories', () => {
       name: 'Otočka vpravo',
       variants: [{ id: variantId, figureId: figure.id }],
     });
-    expect(routines.listByDance(waltz.id)[0]?.routineFigures).toEqual(
+    expect(routines.listByDance(waltz.id)[0]?.sections[0]?.routineFigures).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: first.id, figureId: figure.id, figureName: 'Otočka vpravo' }),
         expect.objectContaining({
@@ -235,7 +380,7 @@ describe('SQLite Figure and Routine repositories', () => {
         variants: [expect.objectContaining({ id: variantId, figureId: figure.id })],
       }),
     ]);
-    expect(reopenedRoutine?.routineFigures.map((item) => item.figureName)).toEqual([
+    expect(reopenedRoutine?.sections[0]?.routineFigures.map((item) => item.figureName)).toEqual([
       'Otočka vpravo',
       'Otočka vpravo',
     ]);

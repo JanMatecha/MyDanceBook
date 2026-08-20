@@ -31,19 +31,19 @@ This document is authoritative for the first usable release. “Core MVP” mean
 
 ### Routines and rapid entry
 
-- A Routine can be created with only Dance and name; Floor, expected figure count, timing anchor, start placement, sections, and notes remain optional.
-- Each RoutineFigure has a stable ID and one position in the Routine's single global order.
+- A Routine can be created with only Dance and name; its first Section is created automatically as `Část 1`, while Floor, expected figure count, timing anchor, start placement, and notes remain optional.
+- Each RoutineFigure has a stable ID, belongs to exactly one RoutineSection, and has one position within that Section.
 - An occurrence can be a placeholder, reference a Figure only, or reference a FigureVariant.
 - The `+ Figure` flow supports adding a placeholder, searching existing Figures, selecting a variant, or creating a missing Figure inline with only a name.
 - Inline creation uses the Routine's Dance, creates the first variant, assigns it immediately, and keeps the user in the Routine.
-- Reordering and inserting occurrences do not change stable IDs; displayed numbers are derived.
+- Reordering, inserting, and moving occurrences between Sections do not change stable IDs; displayed global numbers are derived by flattening the hierarchy.
 - Each occurrence owns a manual Done flag and contextual data only. Core MVP has no generic RoutineFigure technical override.
 - An optional expected total count supports manual progress independent of technical completeness.
 
 ### Sections and Etudes
 
-- A Routine may define optional ordered sections whose covered occurrences form contiguous blocks.
-- A RoutineFigure belongs to zero or one Section; sections do not maintain a second figure order and are not inherently floor sides.
+- A Routine has one or more ordered Sections, and each RoutineFigure belongs to exactly one Section. Empty Sections are valid.
+- Sections own their occurrence order; there is no second canonical flat Routine order. Section names are free user labels and are not inherently floor sides.
 - Standard and Latin Etudes are separate cyclic constructions, not Dances.
 - An Etude requires discipline and name, allows placeholders, uses the normal Figure/FigureVariant library, and rejects cross-discipline figure selection.
 - A Standard Etude can combine Standard dances; a Latin Etude can combine Latin dances. Source Dance identity remains visible.
@@ -154,7 +154,7 @@ All examples below use fictional user-entered content and assert product behavio
 
 ### 2. Capture an unknown routine
 
-**Given** Waltz navigation, **when** the user creates “Training routine” with only its name and adds three placeholders, **then** the Routine is usable and displays three stable ordered occurrences without demanding Floor, timing, sections, or figures.
+**Given** Waltz navigation, **when** the user creates “Training routine” with only its name, **then** the Routine is immediately usable with `Část 1` and no second creation dialog. **When** three placeholders are added to that Section, **then** it displays three stable ordered occurrences without demanding Floor, timing, or figures.
 
 ### 3. Create a Figure inline
 

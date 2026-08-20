@@ -38,7 +38,7 @@ describe('GET /api/health', () => {
     expect(response.json()).toEqual({
       status: 'ok',
       application: 'MyDanceBook',
-      database: { status: 'ok', migrationVersion: 3 },
+      database: { status: 'ok', migrationVersion: 4 },
       timestamp: '2026-08-17T12:00:00.000Z',
     });
     await app.close();

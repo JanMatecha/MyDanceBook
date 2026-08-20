@@ -11,12 +11,16 @@ import {
   AssignRoutineFigureCommand,
   CreateFigureForRoutineFigureCommand,
   CreateRoutineCommand,
+  CreateRoutineSectionCommand,
   MoveRoutineFigureCommand,
+  MoveRoutineFigureToSectionCommand,
+  MoveRoutineSectionCommand,
+  RenameRoutineSectionCommand,
   SetRoutineFigureDoneCommand,
 } from '../../application/routine/routine-use-cases.js';
 import { InvalidFigureNameError } from '../../domain/figure.js';
 import { parseEntityId } from '../../domain/identity.js';
-import { InvalidRoutineNameError } from '../../domain/routine.js';
+import { InvalidRoutineNameError, InvalidRoutineSectionNameError } from '../../domain/routine.js';
 
 const entityIdSchema = z
   .string()
@@ -25,12 +29,15 @@ const entityIdSchema = z
 const danceParamsSchema = z.object({ danceId: entityIdSchema });
 const figureParamsSchema = z.object({ figureId: entityIdSchema });
 const routineParamsSchema = z.object({ routineId: entityIdSchema });
+const routineSectionParamsSchema = z.object({ routineSectionId: entityIdSchema });
 const routineFigureParamsSchema = z.object({ routineFigureId: entityIdSchema });
 const nameSchema = z.object({ name: z.string() }).strict();
 const assignmentSchema = z
   .object({ figureId: entityIdSchema, figureVariantId: entityIdSchema.nullable().optional() })
   .strict();
 const moveSchema = z.object({ beforeRoutineFigureId: entityIdSchema.nullable() }).strict();
+const moveSectionSchema = z.object({ beforeRoutineSectionId: entityIdSchema.nullable() }).strict();
+const targetSectionSchema = z.object({ routineSectionId: entityIdSchema }).strict();
 const doneSchema = z.object({ done: z.boolean() }).strict();
 
 const danceSchema = z.object({
@@ -57,7 +64,7 @@ const figureSchema = z.object({
 });
 const routineFigureSchema = z.object({
   id: z.string().uuid(),
-  routineId: z.string().uuid(),
+  sectionId: z.string().uuid(),
   position: z.number().int().min(1),
   figureId: z.string().uuid().nullable(),
   figureVariantId: z.string().uuid().nullable(),
@@ -67,13 +74,24 @@ const routineFigureSchema = z.object({
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
+const routineSectionBaseSchema = z.object({
+  id: z.string().uuid(),
+  routineId: z.string().uuid(),
+  name: z.string(),
+  position: z.number().int().min(1),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+const routineSectionSchema = routineSectionBaseSchema.extend({
+  routineFigures: z.array(routineFigureSchema),
+});
 const routineSchema = z.object({
   id: z.string().uuid(),
   danceId: z.string().uuid(),
   name: z.string(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
-  routineFigures: z.array(routineFigureSchema),
+  sections: z.array(routineSectionSchema).min(1),
 });
 const notebookSchema = z.object({
   dance: danceSchema,
@@ -86,10 +104,14 @@ export interface NotebookRouteServices {
   readonly createFigure: CreateFigureCommand;
   readonly renameFigure: RenameFigureCommand;
   readonly createRoutine: CreateRoutineCommand;
+  readonly createRoutineSection: CreateRoutineSectionCommand;
+  readonly renameRoutineSection: RenameRoutineSectionCommand;
+  readonly moveRoutineSection: MoveRoutineSectionCommand;
   readonly addPlaceholder: AddRoutineFigurePlaceholderCommand;
   readonly assignRoutineFigure: AssignRoutineFigureCommand;
   readonly createFigureForRoutineFigure: CreateFigureForRoutineFigureCommand;
   readonly moveRoutineFigure: MoveRoutineFigureCommand;
+  readonly moveRoutineFigureToSection: MoveRoutineFigureToSectionCommand;
   readonly setRoutineFigureDone: SetRoutineFigureDoneCommand;
 }
 
@@ -144,18 +166,69 @@ export function registerNotebookRoutes(
     }
     try {
       const routine = services.createRoutine.execute({ ...input.data, danceId });
-      return reply.code(201).send(routineSchema.parse({ ...routine, routineFigures: [] }));
+      return reply.code(201).send(routineSchema.parse(routine));
     } catch (cause: unknown) {
       return sendNotebookError(reply, cause);
     }
   });
 
-  app.post('/api/routines/:routineId/routine-figures', async (request, reply) => {
+  app.post('/api/routines/:routineId/sections', async (request, reply) => {
     const routineId = readId(routineParamsSchema.safeParse(request.params), reply);
-    if (!routineId) return;
-    const routineFigure = services.addPlaceholder.execute(routineId);
+    const input = nameSchema.safeParse(request.body);
+    if (!routineId || !input.success) return sendInvalidRequest(reply);
+    try {
+      const section = services.createRoutineSection.execute(routineId, input.data.name);
+      if (!section) {
+        return reply.code(404).send(notFound('routine_not_found', 'Sestava nebyla nalezena.'));
+      }
+      return reply.code(201).send(routineSectionBaseSchema.parse(section));
+    } catch (cause: unknown) {
+      return sendNotebookError(reply, cause);
+    }
+  });
+
+  app.put('/api/routine-sections/:routineSectionId/name', async (request, reply) => {
+    const routineSectionId = readId(routineSectionParamsSchema.safeParse(request.params), reply);
+    const input = nameSchema.safeParse(request.body);
+    if (!routineSectionId || !input.success) return sendInvalidRequest(reply);
+    try {
+      const section = services.renameRoutineSection.execute(routineSectionId, input.data.name);
+      if (!section) {
+        return reply
+          .code(404)
+          .send(notFound('routine_section_not_found', 'Část sestavy nebyla nalezena.'));
+      }
+      return reply.code(200).send(routineSectionBaseSchema.parse(section));
+    } catch (cause: unknown) {
+      return sendNotebookError(reply, cause);
+    }
+  });
+
+  app.post('/api/routine-sections/:routineSectionId/move', async (request, reply) => {
+    const routineSectionId = readId(routineSectionParamsSchema.safeParse(request.params), reply);
+    const input = moveSectionSchema.safeParse(request.body);
+    if (!routineSectionId || !input.success) return sendInvalidRequest(reply);
+    const result = services.moveRoutineSection.execute(
+      routineSectionId,
+      requireIdOrNull(input.data.beforeRoutineSectionId),
+    );
+    if (result === 'not_found') {
+      return reply
+        .code(404)
+        .send(notFound('routine_section_not_found', 'Část sestavy nebyla nalezena.'));
+    }
+    if (result === 'invalid_target') return sendInvalidRequest(reply);
+    return reply.code(200).send({ status: 'ok' });
+  });
+
+  app.post('/api/routine-sections/:routineSectionId/routine-figures', async (request, reply) => {
+    const routineSectionId = readId(routineSectionParamsSchema.safeParse(request.params), reply);
+    if (!routineSectionId) return;
+    const routineFigure = services.addPlaceholder.execute(routineSectionId);
     if (!routineFigure) {
-      return reply.code(404).send(notFound('routine_not_found', 'Sestava nebyla nalezena.'));
+      return reply
+        .code(404)
+        .send(notFound('routine_section_not_found', 'Část sestavy nebyla nalezena.'));
     }
     return reply.code(201).send(routineFigureSchema.parse(routineFigure));
   });
@@ -204,6 +277,23 @@ export function registerNotebookRoutes(
     return reply.code(200).send({ status: 'ok' });
   });
 
+  app.put('/api/routine-figures/:routineFigureId/section', async (request, reply) => {
+    const routineFigureId = readId(routineFigureParamsSchema.safeParse(request.params), reply);
+    const input = targetSectionSchema.safeParse(request.body);
+    if (!routineFigureId || !input.success) return sendInvalidRequest(reply);
+    const result = services.moveRoutineFigureToSection.execute(
+      routineFigureId,
+      requireId(input.data.routineSectionId),
+    );
+    if (result === 'not_found') {
+      return reply
+        .code(404)
+        .send(notFound('routine_figure_not_found', 'Výskyt figury nebyl nalezen.'));
+    }
+    if (result === 'invalid_target') return sendInvalidRequest(reply);
+    return reply.code(200).send({ status: 'ok' });
+  });
+
   app.put('/api/routine-figures/:routineFigureId/done', async (request, reply) => {
     const routineFigureId = readId(routineFigureParamsSchema.safeParse(request.params), reply);
     const input = doneSchema.safeParse(request.body);
@@ -223,6 +313,7 @@ function readId(
     danceId?: string;
     figureId?: string;
     routineId?: string;
+    routineSectionId?: string;
     routineFigureId?: string;
   }>,
   reply: FastifyReply,
@@ -235,6 +326,7 @@ function readId(
     parsed.data.danceId ??
     parsed.data.figureId ??
     parsed.data.routineId ??
+    parsed.data.routineSectionId ??
     parsed.data.routineFigureId;
   return value === undefined ? null : parseEntityId(value);
 }
@@ -277,7 +369,11 @@ function sendInvalidRequest(reply: FastifyReply) {
 }
 
 function sendNotebookError(reply: FastifyReply, cause: unknown) {
-  if (cause instanceof InvalidFigureNameError || cause instanceof InvalidRoutineNameError) {
+  if (
+    cause instanceof InvalidFigureNameError ||
+    cause instanceof InvalidRoutineNameError ||
+    cause instanceof InvalidRoutineSectionNameError
+  ) {
     return reply.code(400).send({ error: 'invalid_request', message: cause.message });
   }
   throw cause;

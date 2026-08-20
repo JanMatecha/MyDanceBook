@@ -1,13 +1,21 @@
 import type { NewFigureRecord } from '../../application/figure/figure-repository.js';
 import type {
-  NewRoutineRecord,
   NewRoutineFigureRecord,
+  NewRoutineRecord,
+  NewRoutineSectionRecord,
   RoutineFigureAssignmentResult,
   RoutineFigureMoveResult,
   RoutineRepository,
+  RoutineSectionMoveResult,
 } from '../../application/routine/routine-repository.js';
 import { parseEntityId, type EntityId } from '../../domain/identity.js';
-import type { Routine, RoutineFigure, RoutineWithFigures } from '../../domain/routine.js';
+import type {
+  Routine,
+  RoutineFigure,
+  RoutineSection,
+  RoutineSectionWithFigures,
+  RoutineWithSections,
+} from '../../domain/routine.js';
 import type { SqliteDatabase } from './database.js';
 
 interface RoutineRow {
@@ -18,9 +26,18 @@ interface RoutineRow {
   readonly updated_at: string;
 }
 
-interface RoutineFigureRow {
+interface RoutineSectionRow {
   readonly id: string;
   readonly routine_id: string;
+  readonly name: string;
+  readonly position: number;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+interface RoutineFigureRow {
+  readonly id: string;
+  readonly section_id: string;
   readonly position: number;
   readonly figure_id: string | null;
   readonly figure_variant_id: string | null;
@@ -33,65 +50,120 @@ interface RoutineFigureRow {
 
 interface RoutineFigureLocationRow {
   readonly id: string;
+  readonly section_id: string;
   readonly routine_id: string;
   readonly dance_id: string;
+  readonly position: number;
+}
+
+interface OrderedLocationRow {
+  readonly id: string;
   readonly position: number;
 }
 
 export class SqliteRoutineRepository implements RoutineRepository {
   public constructor(private readonly database: SqliteDatabase) {}
 
-  public listByDance(danceId: EntityId): readonly RoutineWithFigures[] {
+  public listByDance(danceId: EntityId): readonly RoutineWithSections[] {
     const routines = this.database
       .prepare(
         `SELECT id, dance_id, name, created_at, updated_at
          FROM routines WHERE dance_id = ? ORDER BY created_at, id`,
       )
       .all(danceId) as RoutineRow[];
+    const sections = this.database
+      .prepare(
+        `SELECT routine_sections.id, routine_sections.routine_id, routine_sections.name,
+                routine_sections.position, routine_sections.created_at, routine_sections.updated_at
+         FROM routine_sections
+         JOIN routines ON routines.id = routine_sections.routine_id
+         WHERE routines.dance_id = ?
+         ORDER BY routine_sections.routine_id, routine_sections.position`,
+      )
+      .all(danceId) as RoutineSectionRow[];
     const figures = this.database
       .prepare(
-        `SELECT routine_figures.id, routine_figures.routine_id, routine_figures.position,
+        `SELECT routine_figures.id, routine_figures.section_id, routine_figures.position,
                 routine_figures.figure_id, routine_figures.figure_variant_id,
                 figures.name AS figure_name, figure_variants.name AS figure_variant_name,
                 routine_figures.done, routine_figures.created_at, routine_figures.updated_at
          FROM routine_figures
-         JOIN routines ON routines.id = routine_figures.routine_id
+         JOIN routine_sections ON routine_sections.id = routine_figures.section_id
+         JOIN routines ON routines.id = routine_sections.routine_id
          LEFT JOIN figures ON figures.id = routine_figures.figure_id
          LEFT JOIN figure_variants ON figure_variants.id = routine_figures.figure_variant_id
          WHERE routines.dance_id = ?
-         ORDER BY routine_figures.routine_id, routine_figures.position`,
+         ORDER BY routine_sections.routine_id, routine_sections.position, routine_figures.position`,
       )
       .all(danceId) as RoutineFigureRow[];
-    const figuresByRoutine = new Map<string, RoutineFigure[]>();
+
+    const figuresBySection = new Map<string, RoutineFigure[]>();
     for (const figure of figures) {
-      const current = figuresByRoutine.get(figure.routine_id) ?? [];
+      const current = figuresBySection.get(figure.section_id) ?? [];
       current.push(mapRoutineFigure(figure));
-      figuresByRoutine.set(figure.routine_id, current);
+      figuresBySection.set(figure.section_id, current);
+    }
+
+    const sectionsByRoutine = new Map<string, RoutineSectionWithFigures[]>();
+    for (const section of sections) {
+      const current = sectionsByRoutine.get(section.routine_id) ?? [];
+      current.push({
+        ...mapRoutineSection(section),
+        routineFigures: figuresBySection.get(section.id) ?? [],
+      });
+      sectionsByRoutine.set(section.routine_id, current);
     }
 
     return routines.map((routine) => ({
       ...mapRoutine(routine),
-      routineFigures: figuresByRoutine.get(routine.id) ?? [],
+      sections: sectionsByRoutine.get(routine.id) ?? [],
     }));
   }
 
-  public create(record: NewRoutineRecord): Routine {
-    this.database
-      .prepare(
-        `INSERT INTO routines (id, dance_id, name, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?)`,
-      )
-      .run(record.id, record.danceId, record.name, record.createdAt, record.createdAt);
-    return {
-      id: record.id,
-      danceId: record.danceId,
-      name: record.name,
-      createdAt: record.createdAt,
-      updatedAt: record.createdAt,
-    };
+  public create(record: NewRoutineRecord): RoutineWithSections {
+    const create = this.database.transaction(() => {
+      this.database
+        .prepare(
+          `INSERT INTO routines (id, dance_id, name, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(record.id, record.danceId, record.name, record.createdAt, record.createdAt);
+      this.database
+        .prepare(
+          `INSERT INTO routine_sections
+             (id, routine_id, name, position, created_at, updated_at)
+           VALUES (?, ?, ?, 1, ?, ?)`,
+        )
+        .run(
+          record.firstSectionId,
+          record.id,
+          record.firstSectionName,
+          record.createdAt,
+          record.createdAt,
+        );
+      return {
+        id: record.id,
+        danceId: record.danceId,
+        name: record.name,
+        createdAt: record.createdAt,
+        updatedAt: record.createdAt,
+        sections: [
+          {
+            id: record.firstSectionId,
+            routineId: record.id,
+            name: record.firstSectionName,
+            position: 1,
+            createdAt: record.createdAt,
+            updatedAt: record.createdAt,
+            routineFigures: [],
+          },
+        ],
+      } satisfies RoutineWithSections;
+    });
+    return create();
   }
 
-  public createPlaceholder(record: NewRoutineFigureRecord): RoutineFigure | null {
+  public createSection(record: NewRoutineSectionRecord): RoutineSection | null {
     const create = this.database.transaction(() => {
       const routine = this.database
         .prepare('SELECT id FROM routines WHERE id = ?')
@@ -99,19 +171,118 @@ export class SqliteRoutineRepository implements RoutineRepository {
       if (!routine) return null;
       const position = this.database
         .prepare(
-          'SELECT COALESCE(MAX(position), 0) + 1 AS position FROM routine_figures WHERE routine_id = ?',
+          `SELECT COALESCE(MAX(position), 0) + 1 AS position
+           FROM routine_sections WHERE routine_id = ?`,
         )
         .get(record.routineId) as { position: number };
       this.database
         .prepare(
-          `INSERT INTO routine_figures
-             (id, routine_id, position, figure_id, figure_variant_id, done, created_at, updated_at)
-           VALUES (?, ?, ?, NULL, NULL, 0, ?, ?)`,
+          `INSERT INTO routine_sections
+             (id, routine_id, name, position, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
         )
-        .run(record.id, record.routineId, position.position, record.createdAt, record.createdAt);
+        .run(
+          record.id,
+          record.routineId,
+          record.name,
+          position.position,
+          record.createdAt,
+          record.createdAt,
+        );
       return {
         id: record.id,
         routineId: record.routineId,
+        name: record.name,
+        position: position.position,
+        createdAt: record.createdAt,
+        updatedAt: record.createdAt,
+      } satisfies RoutineSection;
+    });
+    return create();
+  }
+
+  public renameSection(
+    routineSectionId: EntityId,
+    name: string,
+    updatedAt: string,
+  ): RoutineSection | null {
+    const update = this.database.transaction(() => {
+      const row = this.database
+        .prepare(
+          `SELECT id, routine_id, name, position, created_at, updated_at
+           FROM routine_sections WHERE id = ?`,
+        )
+        .get(routineSectionId) as RoutineSectionRow | undefined;
+      if (!row) return null;
+      this.database
+        .prepare('UPDATE routine_sections SET name = ?, updated_at = ? WHERE id = ?')
+        .run(name, updatedAt, routineSectionId);
+      return { ...mapRoutineSection(row), name, updatedAt };
+    });
+    return update();
+  }
+
+  public moveSectionBefore(
+    routineSectionId: EntityId,
+    beforeRoutineSectionId: EntityId | null,
+    updatedAt: string,
+  ): RoutineSectionMoveResult {
+    const move = this.database.transaction(() => {
+      const current = this.database
+        .prepare('SELECT id, routine_id, position FROM routine_sections WHERE id = ?')
+        .get(routineSectionId) as
+        Pick<RoutineSectionRow, 'id' | 'routine_id' | 'position'> | undefined;
+      if (!current) return 'not_found' as const;
+      if (beforeRoutineSectionId === routineSectionId) return 'moved' as const;
+
+      const sections = this.database
+        .prepare(
+          `SELECT id, position FROM routine_sections
+           WHERE routine_id = ? ORDER BY position`,
+        )
+        .all(current.routine_id) as OrderedLocationRow[];
+      const remaining = sections.filter((item) => item.id !== routineSectionId);
+      const targetIndex =
+        beforeRoutineSectionId === null
+          ? remaining.length
+          : remaining.findIndex((item) => item.id === beforeRoutineSectionId);
+      if (targetIndex === -1) return 'invalid_target' as const;
+
+      remaining.splice(targetIndex, 0, current);
+      this.stageSectionPositions(current.routine_id, sections, updatedAt);
+      const setPosition = this.database.prepare(
+        'UPDATE routine_sections SET position = ?, updated_at = ? WHERE id = ?',
+      );
+      for (const [index, section] of remaining.entries()) {
+        setPosition.run(index + 1, updatedAt, section.id);
+      }
+      return 'moved' as const;
+    });
+    return move();
+  }
+
+  public createPlaceholder(record: NewRoutineFigureRecord): RoutineFigure | null {
+    const create = this.database.transaction(() => {
+      const section = this.database
+        .prepare('SELECT id FROM routine_sections WHERE id = ?')
+        .get(record.sectionId) as { id: string } | undefined;
+      if (!section) return null;
+      const position = this.database
+        .prepare(
+          `SELECT COALESCE(MAX(position), 0) + 1 AS position
+           FROM routine_figures WHERE section_id = ?`,
+        )
+        .get(record.sectionId) as { position: number };
+      this.database
+        .prepare(
+          `INSERT INTO routine_figures
+             (id, section_id, position, figure_id, figure_variant_id, done, created_at, updated_at)
+           VALUES (?, ?, ?, NULL, NULL, 0, ?, ?)`,
+        )
+        .run(record.id, record.sectionId, position.position, record.createdAt, record.createdAt);
+      return {
+        id: record.id,
+        sectionId: record.sectionId,
         position: position.position,
         figureId: null,
         figureVariantId: null,
@@ -199,12 +370,10 @@ export class SqliteRoutineRepository implements RoutineRepository {
 
       const routineFigures = this.database
         .prepare(
-          `SELECT id, routine_id, position FROM routine_figures
-           WHERE routine_id = ? ORDER BY position`,
+          `SELECT id, position FROM routine_figures
+           WHERE section_id = ? ORDER BY position`,
         )
-        .all(current.routine_id) as Array<
-        Pick<RoutineFigureLocationRow, 'id' | 'routine_id' | 'position'>
-      >;
+        .all(current.section_id) as OrderedLocationRow[];
       const remaining = routineFigures.filter((item) => item.id !== routineFigureId);
       const targetIndex =
         beforeRoutineFigureId === null
@@ -213,16 +382,59 @@ export class SqliteRoutineRepository implements RoutineRepository {
       if (targetIndex === -1) return 'invalid_target' as const;
 
       remaining.splice(targetIndex, 0, current);
-      this.database
-        .prepare(
-          'UPDATE routine_figures SET position = -position, updated_at = ? WHERE routine_id = ?',
-        )
-        .run(updatedAt, current.routine_id);
+      this.stageRoutineFigurePositions(current.section_id, routineFigures, updatedAt);
       const setPosition = this.database.prepare(
         'UPDATE routine_figures SET position = ?, updated_at = ? WHERE id = ?',
       );
       for (const [index, routineFigure] of remaining.entries()) {
         setPosition.run(index + 1, updatedAt, routineFigure.id);
+      }
+      return 'moved' as const;
+    });
+    return move();
+  }
+
+  public moveToSection(
+    routineFigureId: EntityId,
+    routineSectionId: EntityId,
+    updatedAt: string,
+  ): RoutineFigureMoveResult {
+    const move = this.database.transaction(() => {
+      const current = this.findRoutineFigureLocation(routineFigureId);
+      if (!current) return 'not_found' as const;
+      const target = this.database
+        .prepare('SELECT id, routine_id FROM routine_sections WHERE id = ?')
+        .get(routineSectionId) as Pick<RoutineSectionRow, 'id' | 'routine_id'> | undefined;
+      if (!target || target.routine_id !== current.routine_id) return 'invalid_target' as const;
+      if (target.id === current.section_id) return 'moved' as const;
+
+      const targetPosition = this.database
+        .prepare(
+          `SELECT COALESCE(MAX(position), 0) + 1 AS position
+           FROM routine_figures WHERE section_id = ?`,
+        )
+        .get(target.id) as { position: number };
+      this.database
+        .prepare(
+          `UPDATE routine_figures
+           SET section_id = ?, position = ?, updated_at = ?
+           WHERE id = ?`,
+        )
+        .run(target.id, targetPosition.position, updatedAt, routineFigureId);
+
+      const sourceFigures = this.database
+        .prepare(
+          `SELECT id, position FROM routine_figures
+           WHERE section_id = ? ORDER BY position`,
+        )
+        .all(current.section_id) as OrderedLocationRow[];
+      const setPosition = this.database.prepare(
+        'UPDATE routine_figures SET position = ?, updated_at = ? WHERE id = ?',
+      );
+      for (const [index, routineFigure] of sourceFigures.entries()) {
+        if (routineFigure.position !== index + 1) {
+          setPosition.run(index + 1, updatedAt, routineFigure.id);
+        }
       }
       return 'moved' as const;
     });
@@ -235,18 +447,7 @@ export class SqliteRoutineRepository implements RoutineRepository {
     updatedAt: string,
   ): RoutineFigure | null {
     const update = this.database.transaction(() => {
-      const row = this.database
-        .prepare(
-          `SELECT routine_figures.id, routine_figures.routine_id, routine_figures.position,
-                  routine_figures.figure_id, routine_figures.figure_variant_id,
-                  figures.name AS figure_name, figure_variants.name AS figure_variant_name,
-                  routine_figures.done, routine_figures.created_at, routine_figures.updated_at
-           FROM routine_figures
-           LEFT JOIN figures ON figures.id = routine_figures.figure_id
-           LEFT JOIN figure_variants ON figure_variants.id = routine_figures.figure_variant_id
-           WHERE routine_figures.id = ?`,
-        )
-        .get(routineFigureId) as RoutineFigureRow | undefined;
+      const row = this.findRoutineFigure(routineFigureId);
       if (!row) return null;
       this.database
         .prepare('UPDATE routine_figures SET done = ?, updated_at = ? WHERE id = ?')
@@ -256,16 +457,66 @@ export class SqliteRoutineRepository implements RoutineRepository {
     return update();
   }
 
+  private stageSectionPositions(
+    routineId: string,
+    sections: readonly OrderedLocationRow[],
+    updatedAt: string,
+  ): void {
+    const maximum = sections.at(-1)?.position ?? 0;
+    const offset = maximum + sections.length + 1;
+    this.database
+      .prepare(
+        `UPDATE routine_sections
+         SET position = position + ?, updated_at = ?
+         WHERE routine_id = ?`,
+      )
+      .run(offset, updatedAt, routineId);
+  }
+
+  private stageRoutineFigurePositions(
+    sectionId: string,
+    routineFigures: readonly OrderedLocationRow[],
+    updatedAt: string,
+  ): void {
+    const maximum = routineFigures.at(-1)?.position ?? 0;
+    const offset = maximum + routineFigures.length + 1;
+    this.database
+      .prepare(
+        `UPDATE routine_figures
+         SET position = position + ?, updated_at = ?
+         WHERE section_id = ?`,
+      )
+      .run(offset, updatedAt, sectionId);
+  }
+
   private findRoutineFigureLocation(
     routineFigureId: EntityId,
   ): RoutineFigureLocationRow | undefined {
     return this.database
       .prepare(
-        `SELECT routine_figures.id, routine_figures.routine_id, routines.dance_id, routine_figures.position
-         FROM routine_figures JOIN routines ON routines.id = routine_figures.routine_id
+        `SELECT routine_figures.id, routine_figures.section_id,
+                routine_sections.routine_id, routines.dance_id, routine_figures.position
+         FROM routine_figures
+         JOIN routine_sections ON routine_sections.id = routine_figures.section_id
+         JOIN routines ON routines.id = routine_sections.routine_id
          WHERE routine_figures.id = ?`,
       )
       .get(routineFigureId) as RoutineFigureLocationRow | undefined;
+  }
+
+  private findRoutineFigure(routineFigureId: EntityId): RoutineFigureRow | undefined {
+    return this.database
+      .prepare(
+        `SELECT routine_figures.id, routine_figures.section_id, routine_figures.position,
+                routine_figures.figure_id, routine_figures.figure_variant_id,
+                figures.name AS figure_name, figure_variants.name AS figure_variant_name,
+                routine_figures.done, routine_figures.created_at, routine_figures.updated_at
+         FROM routine_figures
+         LEFT JOIN figures ON figures.id = routine_figures.figure_id
+         LEFT JOIN figure_variants ON figure_variants.id = routine_figures.figure_variant_id
+         WHERE routine_figures.id = ?`,
+      )
+      .get(routineFigureId) as RoutineFigureRow | undefined;
   }
 
   private isValidAssignment(
@@ -296,10 +547,21 @@ function mapRoutine(row: RoutineRow): Routine {
   };
 }
 
-function mapRoutineFigure(row: RoutineFigureRow): RoutineFigure {
+function mapRoutineSection(row: RoutineSectionRow): RoutineSection {
   return {
     id: requireEntityId(row.id),
     routineId: requireEntityId(row.routine_id),
+    name: row.name,
+    position: row.position,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapRoutineFigure(row: RoutineFigureRow): RoutineFigure {
+  return {
+    id: requireEntityId(row.id),
+    sectionId: requireEntityId(row.section_id),
     position: row.position,
     figureId: row.figure_id === null ? null : requireEntityId(row.figure_id),
     figureVariantId: row.figure_variant_id === null ? null : requireEntityId(row.figure_variant_id),

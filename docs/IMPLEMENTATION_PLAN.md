@@ -78,7 +78,7 @@ subset together with the minimum Routine/RoutineFigure capability from Slice
 - reorder and derive display numbers;
 - search/select Figure and variant;
 - create Figure inline and assign it without leaving Routine;
-- add optional contiguous RoutineSections;
+- create the first RoutineSection automatically, support ordered named Sections, and keep RoutineFigure order within its owning Section;
 - add manual occurrence Done and expected total progress.
 
 ### Slice 2.4: shared/local editing and Notes

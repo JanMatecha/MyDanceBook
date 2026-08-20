@@ -22,6 +22,13 @@ state; do not append history or session notes here.
   and opens a new placeholder. The central Figure name can be renamed directly
   from the clearly scoped shared-definition area; the persisted central name is
   immediately shown by every referencing RoutineFigure.
+- Mandatory RoutineSection hierarchy: every new Routine transactionally starts
+  with `Část 1`; Sections can be created, renamed, and reordered; placeholders
+  are added within a Section; occurrences reorder locally or move between
+  Sections without losing identity or data; and global display numbers are
+  derived by flattening the persisted hierarchy. Migration 0004 safely places
+  existing flat occurrences under one initial Section while preserving their
+  IDs, references, Done values, order, and timestamps.
 - Safe SQLite persistence foundations, versioned migrations, backup primitive,
   Docker/runtime checks, and the React/Vite + Fastify application shell. The
   first post-Pair schema migration requires a verified pre-migration backup and
@@ -29,17 +36,17 @@ state; do not append history or session notes here.
 
 ## Not implemented yet
 
-Figure archive/restore, multiple user-created variants and central technique
-editing, Notes, RoutineSections, Etude records, structured technique, timing,
-geometry editors, and the later backup/restore and collaboration capabilities
-are not yet available.
+Figure archive/restore, Section delete/merge and drag-and-drop, multiple
+user-created variants and central technique editing, Notes, Etude records,
+structured technique, timing, geometry editors, and the later backup/restore
+and collaboration capabilities are not yet available.
 
 ## Immediate objective
 
-Continue entering and reopening real Waltz pair data with the compact routine
-overview and central Figure naming flow. Select the next narrow Phase 2 slice
-from observed notebook use, keeping the workflow generic for every Dance and
-deferring advanced technique, timing, geometry, and future roadmap work until
-it is needed.
+Continue entering and reopening real Waltz pair data with named RoutineSections,
+the compact hierarchical routine overview, and the central Figure naming flow.
+Select the next narrow Phase 2 slice from observed notebook use, keeping the
+workflow generic for every Dance and deferring advanced technique, timing,
+geometry, and future roadmap work until it is needed.
 
 There are no known unresolved blockers at this snapshot.
