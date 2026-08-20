@@ -3,7 +3,8 @@ import { z } from 'zod';
 
 import type {
   CreateFigureCommand,
-  RenameFigureCommand,
+  UpdateFigureNamesCommand,
+  UpdateFigureVariantTimingCommand,
 } from '../../application/figure/figure-use-cases.js';
 import type { GetDanceNotebookQuery } from '../../application/routine/get-dance-notebook.js';
 import {
@@ -14,6 +15,7 @@ import {
   CreateRoutineSectionCommand,
   MoveRoutineFigureCommand,
   MoveRoutineFigureToSectionCommand,
+  RemoveRoutineFigureCommand,
   MoveRoutineSectionCommand,
   RenameRoutineSectionCommand,
   SetRoutineFigureDoneCommand,
@@ -28,10 +30,15 @@ const entityIdSchema = z
   .refine((value) => parseEntityId(value) !== null);
 const danceParamsSchema = z.object({ danceId: entityIdSchema });
 const figureParamsSchema = z.object({ figureId: entityIdSchema });
+const figureVariantParamsSchema = z.object({ figureVariantId: entityIdSchema });
 const routineParamsSchema = z.object({ routineId: entityIdSchema });
 const routineSectionParamsSchema = z.object({ routineSectionId: entityIdSchema });
 const routineFigureParamsSchema = z.object({ routineFigureId: entityIdSchema });
 const nameSchema = z.object({ name: z.string() }).strict();
+const figureNamesSchema = z
+  .object({ nameCs: z.string().nullable(), nameEn: z.string().nullable() })
+  .strict();
+const timingNotationSchema = z.object({ timingNotation: z.string().nullable() }).strict();
 const assignmentSchema = z
   .object({ figureId: entityIdSchema, figureVariantId: entityIdSchema.nullable().optional() })
   .strict();
@@ -51,13 +58,15 @@ const variantSchema = z.object({
   id: z.string().uuid(),
   figureId: z.string().uuid(),
   name: z.string(),
+  timingNotation: z.string().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
 const figureSchema = z.object({
   id: z.string().uuid(),
   danceId: z.string().uuid(),
-  name: z.string(),
+  nameCs: z.string().nullable(),
+  nameEn: z.string().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
   variants: z.array(variantSchema).min(1),
@@ -68,8 +77,10 @@ const routineFigureSchema = z.object({
   position: z.number().int().min(1),
   figureId: z.string().uuid().nullable(),
   figureVariantId: z.string().uuid().nullable(),
-  figureName: z.string().nullable(),
+  figureNameCs: z.string().nullable(),
+  figureNameEn: z.string().nullable(),
   figureVariantName: z.string().nullable(),
+  figureVariantTimingNotation: z.string().nullable(),
   done: z.boolean(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -102,7 +113,8 @@ const notebookSchema = z.object({
 export interface NotebookRouteServices {
   readonly getDanceNotebook: GetDanceNotebookQuery;
   readonly createFigure: CreateFigureCommand;
-  readonly renameFigure: RenameFigureCommand;
+  readonly updateFigureNames: UpdateFigureNamesCommand;
+  readonly updateFigureVariantTiming: UpdateFigureVariantTimingCommand;
   readonly createRoutine: CreateRoutineCommand;
   readonly createRoutineSection: CreateRoutineSectionCommand;
   readonly renameRoutineSection: RenameRoutineSectionCommand;
@@ -112,6 +124,7 @@ export interface NotebookRouteServices {
   readonly createFigureForRoutineFigure: CreateFigureForRoutineFigureCommand;
   readonly moveRoutineFigure: MoveRoutineFigureCommand;
   readonly moveRoutineFigureToSection: MoveRoutineFigureToSectionCommand;
+  readonly removeRoutineFigure: RemoveRoutineFigureCommand;
   readonly setRoutineFigureDone: SetRoutineFigureDoneCommand;
 }
 
@@ -129,7 +142,7 @@ export function registerNotebookRoutes(
 
   app.post('/api/dances/:danceId/figures', async (request, reply) => {
     const danceId = readId(danceParamsSchema.safeParse(request.params), reply);
-    const input = nameSchema.safeParse(request.body);
+    const input = figureNamesSchema.safeParse(request.body);
     if (!danceId || !input.success) return sendInvalidRequest(reply);
     if (!services.getDanceNotebook.execute(danceId)) {
       return reply.code(404).send(notFound('dance_not_found', 'Tanec nebyl nalezen.'));
@@ -143,14 +156,33 @@ export function registerNotebookRoutes(
     }
   });
 
-  app.put('/api/figures/:figureId/name', async (request, reply) => {
+  app.put('/api/figures/:figureId/names', async (request, reply) => {
     const figureId = readId(figureParamsSchema.safeParse(request.params), reply);
-    const input = nameSchema.safeParse(request.body);
+    const input = figureNamesSchema.safeParse(request.body);
     if (!figureId || !input.success) return sendInvalidRequest(reply);
     try {
-      const figure = services.renameFigure.execute(figureId, input.data.name);
+      const figure = services.updateFigureNames.execute(figureId, input.data);
       if (!figure)
         return reply.code(404).send(notFound('figure_not_found', 'Figura nebyla nalezena.'));
+      return reply.code(200).send(figureSchema.parse(figure));
+    } catch (cause: unknown) {
+      return sendNotebookError(reply, cause);
+    }
+  });
+
+  app.put('/api/figure-variants/:figureVariantId/timing-notation', async (request, reply) => {
+    const figureVariantId = readId(figureVariantParamsSchema.safeParse(request.params), reply);
+    const input = timingNotationSchema.safeParse(request.body);
+    if (!figureVariantId || !input.success) return sendInvalidRequest(reply);
+    try {
+      const figure = services.updateFigureVariantTiming.execute(
+        figureVariantId,
+        input.data.timingNotation,
+      );
+      if (!figure)
+        return reply
+          .code(404)
+          .send(notFound('figure_variant_not_found', 'Varianta nebyla nalezena.'));
       return reply.code(200).send(figureSchema.parse(figure));
     } catch (cause: unknown) {
       return sendNotebookError(reply, cause);
@@ -247,12 +279,12 @@ export function registerNotebookRoutes(
 
   app.post('/api/routine-figures/:routineFigureId/figure', async (request, reply) => {
     const routineFigureId = readId(routineFigureParamsSchema.safeParse(request.params), reply);
-    const input = nameSchema.safeParse(request.body);
+    const input = figureNamesSchema.safeParse(request.body);
     if (!routineFigureId || !input.success) return sendInvalidRequest(reply);
     try {
       return sendAssignmentResult(
         reply,
-        services.createFigureForRoutineFigure.execute(routineFigureId, input.data.name),
+        services.createFigureForRoutineFigure.execute(routineFigureId, input.data),
         201,
       );
     } catch (cause: unknown) {
@@ -294,6 +326,18 @@ export function registerNotebookRoutes(
     return reply.code(200).send({ status: 'ok' });
   });
 
+  app.delete('/api/routine-figures/:routineFigureId', async (request, reply) => {
+    const routineFigureId = readId(routineFigureParamsSchema.safeParse(request.params), reply);
+    if (!routineFigureId) return;
+    const result = services.removeRoutineFigure.execute(routineFigureId);
+    if (result === 'not_found') {
+      return reply
+        .code(404)
+        .send(notFound('routine_figure_not_found', 'Výskyt figury nebyl nalezen.'));
+    }
+    return reply.code(200).send({ status: 'ok' });
+  });
+
   app.put('/api/routine-figures/:routineFigureId/done', async (request, reply) => {
     const routineFigureId = readId(routineFigureParamsSchema.safeParse(request.params), reply);
     const input = doneSchema.safeParse(request.body);
@@ -312,6 +356,7 @@ function readId(
   parsed: z.ZodSafeParseResult<{
     danceId?: string;
     figureId?: string;
+    figureVariantId?: string;
     routineId?: string;
     routineSectionId?: string;
     routineFigureId?: string;
@@ -325,6 +370,7 @@ function readId(
   const value =
     parsed.data.danceId ??
     parsed.data.figureId ??
+    parsed.data.figureVariantId ??
     parsed.data.routineId ??
     parsed.data.routineSectionId ??
     parsed.data.routineFigureId;

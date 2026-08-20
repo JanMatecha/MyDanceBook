@@ -23,8 +23,10 @@ export interface RoutineFigure {
   readonly position: number;
   readonly figureId: EntityId | null;
   readonly figureVariantId: EntityId | null;
-  readonly figureName: string | null;
+  readonly figureNameCs: string | null;
+  readonly figureNameEn: string | null;
   readonly figureVariantName: string | null;
+  readonly figureVariantTimingNotation: string | null;
   readonly done: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;

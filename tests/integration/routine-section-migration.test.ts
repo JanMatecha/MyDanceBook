@@ -130,6 +130,7 @@ describe('RoutineSection hierarchy migration', () => {
     insertOccurrence.run(ids.tangoSecond, ids.tangoRoutine, 2, null, null, 0, createdAt, createdAt);
 
     await copyMigration('0004_routine_sections.sql', migrationsDirectory);
+    await copyMigration('0005_figure_names_and_variant_timing.sql', migrationsDirectory);
     let backupPath: string | undefined;
     let backupCalls = 0;
     const result = await runMigrations({
@@ -146,8 +147,8 @@ describe('RoutineSection hierarchy migration', () => {
       },
     });
 
-    expect(result.appliedVersions).toEqual([4]);
-    expect(backupCalls).toBe(1);
+    expect(result.appliedVersions).toEqual([4, 5]);
+    expect(backupCalls).toBe(2);
     expect(
       database
         .prepare(
@@ -256,16 +257,9 @@ describe('RoutineSection hierarchy migration', () => {
     expect(backupPath).toBeDefined();
     const backup = new Database(backupPath!, { readonly: true, fileMustExist: true });
     expect(backup.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({
-      version: 3,
+      version: 4,
     });
-    expect(
-      backup
-        .prepare(
-          `SELECT id, routine_id, position, figure_id, figure_variant_id, done, created_at, updated_at
-           FROM routine_figures ORDER BY routine_id, position`,
-        )
-        .all(),
-    ).toHaveLength(5);
+    expect(backup.prepare('SELECT id FROM routine_figures').all()).toHaveLength(5);
     backup.close();
 
     database.close();

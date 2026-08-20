@@ -22,6 +22,21 @@ state; do not append history or session notes here.
   and opens a new placeholder. The central Figure name can be renamed directly
   from the clearly scoped shared-definition area; the persisted central name is
   immediately shown by every referencing RoutineFigure.
+- Figure names are progressive bilingual shared data: `nameCs` and `nameEn`
+  are independently optional but require one non-blank value. A browser-local
+  Czech/English display preference applies consistently with fallback to the
+  available name; compact rows show the preferred name followed by a distinct
+  secondary translation. It does not alter either stored field. FigureVariant also
+  supports optional authored `timingNotation`; it is readable shorthand only,
+  never parsed into exact timing. The generated sole variant is structurally
+  real but implicit in normal use: new Figure assignments persist it directly,
+  while legacy Figure-only occurrences resolve it for display and shared timing
+  editing without changing SQLite on read. Compact RoutineFigure rows show
+  timing, and clicking an open row title collapses its local context.
+- An editable member can remove exactly one selected RoutineFigure occurrence
+  with confirmation. Its Section remains valid when empty; its remaining
+  occurrences are compacted to persisted positions 1..N, and the shared Figure
+  and FigureVariant definitions remain intact.
 - Mandatory RoutineSection hierarchy: every new Routine transactionally starts
   with `Část 1`; Sections can be created, renamed, and reordered; placeholders
   are added within a Section; occurrences reorder locally or move between
@@ -44,7 +59,8 @@ and collaboration capabilities are not yet available.
 ## Immediate objective
 
 Continue entering and reopening real Waltz pair data with named RoutineSections,
-the compact hierarchical routine overview, and the central Figure naming flow.
+the compact hierarchical routine overview, bilingual central Figure names, and
+lightweight shared variant timing.
 Select the next narrow Phase 2 slice from observed notebook use, keeping the
 workflow generic for every Dance and deferring advanced technique, timing,
 geometry, and future roadmap work until it is needed.

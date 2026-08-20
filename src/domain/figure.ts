@@ -3,7 +3,8 @@ import type { EntityId } from './identity.js';
 export interface Figure {
   readonly id: EntityId;
   readonly danceId: EntityId;
-  readonly name: string;
+  readonly nameCs: string | null;
+  readonly nameEn: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -12,6 +13,7 @@ export interface FigureVariant {
   readonly id: EntityId;
   readonly figureId: EntityId;
   readonly name: string;
+  readonly timingNotation: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -27,10 +29,27 @@ export class InvalidFigureNameError extends Error {
   }
 }
 
-export function toFigureName(value: string): string {
-  const name = value.trim();
-  if (name.length < 1 || name.length > 200) throw new InvalidFigureNameError();
-  return name;
+export interface FigureNames {
+  readonly nameCs: string | null;
+  readonly nameEn: string | null;
+}
+
+export function toFigureNames(input: FigureNames): FigureNames {
+  const nameCs = normalizeOptionalText(input.nameCs, 200);
+  const nameEn = normalizeOptionalText(input.nameEn, 200);
+  if (!nameCs && !nameEn) throw new InvalidFigureNameError();
+  return { nameCs, nameEn };
+}
+
+export function toTimingNotation(value: string | null): string | null {
+  return normalizeOptionalText(value, 200);
+}
+
+function normalizeOptionalText(value: string | null, maximumLength: number): string | null {
+  const normalized = value?.trim() ?? '';
+  if (normalized.length === 0) return null;
+  if (normalized.length > maximumLength) throw new InvalidFigureNameError();
+  return normalized;
 }
 
 export const defaultFigureVariantName = 'Výchozí varianta';

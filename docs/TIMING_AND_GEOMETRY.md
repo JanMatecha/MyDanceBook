@@ -4,6 +4,10 @@ This document is authoritative for temporal truth, musical placement, coordinate
 
 ## Timing
 
+### Authored natural timing notation
+
+`FigureVariant.timingNotation` is optional progressive-capture shorthand such as `1 2 3` or `1 – 2 & 3`. It is Unicode text, not a TimingPattern and not exact rational data: it neither selects a TimingScheme nor produces duration, steps, subdivisions, or validation. It coexists with future TimingScheme, TimingPattern, and Step timing without either representation silently replacing the other.
+
 ### One exact Figure timeline
 
 Every FigureVariant has one relative timeline. Its origin is `t = 0` at the variant boundary. The variant may optionally select one TimingScheme; only then can positions and durations be canonical exact rational values. Leader Steps, Follower Steps, TechnicalActions, MovementEvents, timed semantic states, TimingPatternUses, trajectory samples, and VerticalProfile points all refer to this same timeline and inherit that one Scheme context.

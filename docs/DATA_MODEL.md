@@ -117,11 +117,13 @@ Core MVP floors are concrete rectangles only; dimensionless Floor objects do not
 | Field | Requirement | Meaning |
 | --- | --- | --- |
 | `danceId` | required | Part of figure identity |
-| `name` | required | Minimum user-entered content |
-| `aliases` | optional | Searchable alternative names via glossary/name relation |
+| `nameCs` | optional | Czech figure name; at least one of the two names is required |
+| `nameEn` | optional | English figure name; at least one of the two names is required |
 | `archivedAt` | optional | Hidden from new selection, references remain valid |
 
-Uniqueness by normalized `(danceId, name)` may produce a duplicate warning, but must not invent a hard dance-theory equivalence rule. A transaction creating Figure also creates its first FigureVariant.
+Blank names normalize to absent; both names may not be absent. Czech is the primary display name in the Czech UI and English is secondary when both exist. A transaction creating Figure also creates its first FigureVariant.
+
+The user's selected Czech/English presentation is operational browser state, not Figure identity or shared Pair data. Normal display falls back to the available name when the preferred one is absent.
 
 ### FigureVariant
 
@@ -131,6 +133,7 @@ One reusable concrete execution by the whole couple.
 | --- | --- | --- |
 | `figureId` | required | Parent Figure and therefore source Dance |
 | `name` | generated/editable | Does not block first variant creation |
+| `timingNotation` | optional | Human-authored readable shorthand, not canonical exact timing |
 | `timingSchemeId` | optional | The single unit/context for every exact timeline value in this variant |
 | `duration` | optional RationalTime | Exact relative duration in the selected Scheme's beat units |
 | `entryTimingConstraint` | optional | The sole editable musical-entry constraint; present only with and interpreted in the selected Scheme |
@@ -149,6 +152,10 @@ flowchart LR
 ```
 
 These blocks are logical ownership, not three mandatory JSON blobs. Relational child rows use an explicit subject (`COUPLE`, `LEADER`, `FOLLOWER`, or a BodyPart target), so Leader and Follower data cannot be accidentally mixed. A future migration may extract more independent dancer variants without changing what Core MVP means today.
+
+`timingNotation` preserves authored text such as `1 – 2 & 3` after normal trimming. It is never parsed to infer a TimingScheme, TimingPattern, Steps, duration, or official correctness, and remains independent if structured timing is added later.
+
+The automatically created first variant remains real central data. The notebook may treat its generated default label as visually implicit until a meaningful variant choice exists.
 
 Duplicating a variant clones all structured canonical owned data and attached SourceReferences in one transaction, creates new independent IDs, and switches only the initiating occurrence when requested. Notes are not copied, every other occurrence keeps its current reference, and Core MVP does not persist `derivedFromVariantId`. See [ADR 0007](adr/0007-figure-variant-duplication.md).
 

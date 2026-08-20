@@ -26,6 +26,7 @@ export interface NewRoutineFigureRecord {
 
 export type RoutineFigureAssignmentResult = 'updated' | 'not_found' | 'invalid_assignment';
 export type RoutineFigureMoveResult = 'moved' | 'not_found' | 'invalid_target';
+export type RoutineFigureRemoveResult = 'removed' | 'not_found';
 export type RoutineSectionMoveResult = 'moved' | 'not_found' | 'invalid_target';
 
 export interface RoutineRepository {
@@ -60,5 +61,6 @@ export interface RoutineRepository {
     routineSectionId: EntityId,
     updatedAt: string,
   ): RoutineFigureMoveResult;
+  remove(routineFigureId: EntityId, updatedAt: string): RoutineFigureRemoveResult;
   setDone(routineFigureId: EntityId, done: boolean, updatedAt: string): RoutineFigure | null;
 }

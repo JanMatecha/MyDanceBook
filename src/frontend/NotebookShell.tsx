@@ -11,7 +11,9 @@ import {
   moveRoutineFigure,
   moveRoutineFigureToSection,
   moveRoutineSection,
-  renameFigure,
+  removeRoutineFigure,
+  updateFigureNames,
+  updateFigureVariantTiming,
   renameRoutineSection,
   setRoutineFigureDone,
   type DanceNotebook,
@@ -25,7 +27,19 @@ import {
   type ReadyAppState,
 } from './client/app-state';
 import styles from './App.module.css';
-import { loadActiveProfile, saveActiveProfile, type ActiveProfile } from './profile';
+import {
+  loadActiveProfile,
+  loadFigureNameLanguage,
+  saveActiveProfile,
+  saveFigureNameLanguage,
+  type ActiveProfile,
+} from './profile';
+import {
+  displayFigureName,
+  displayFigureNames,
+  isImplicitDefaultVariant,
+  type FigureNameLanguage,
+} from './figure-display';
 import { flattenRoutineFigures } from './routine-hierarchy';
 
 const danceLabels: Record<DanceCode, string> = {
@@ -48,6 +62,8 @@ export interface NotebookShellProps {
 
 export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
   const [profile, setProfile] = useState<ActiveProfile>(() => loadActiveProfile(state.pair));
+  const [figureNameLanguage, setFigureNameLanguage] =
+    useState<FigureNameLanguage>(loadFigureNameLanguage);
   const [leaderDisplayName, setLeaderDisplayName] = useState(state.pair.leader.displayName);
   const [followerDisplayName, setFollowerDisplayName] = useState(state.pair.follower.displayName);
   const [selectedDanceId, setSelectedDanceId] = useState<string | null>(
@@ -79,6 +95,15 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
       ({ routineFigure }) => routineFigure.id === selectedRoutineFigureId,
     ) ?? null;
   const selectedRoutineFigure = selectedRoutineFigureEntry?.routineFigure ?? null;
+  const selectedFigure =
+    notebook?.figures.find((figure) => figure.id === selectedRoutineFigure?.figureId) ?? null;
+  const selectedEffectiveVariant = selectedRoutineFigure?.figureVariantId
+    ? (selectedFigure?.variants.find(
+        (variant) => variant.id === selectedRoutineFigure.figureVariantId,
+      ) ?? null)
+    : selectedFigure?.variants.length === 1
+      ? (selectedFigure.variants[0] ?? null)
+      : null;
 
   useEffect(() => {
     if (!selectedDanceId) return;
@@ -104,6 +129,11 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
     setProfile(next);
     saveActiveProfile(next);
     setMessage(null);
+  }
+
+  function selectFigureNameLanguage(language: FigureNameLanguage) {
+    setFigureNameLanguage(language);
+    saveFigureNameLanguage(language);
   }
 
   function selectDance(danceId: string) {
@@ -158,9 +188,9 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
     if (!selectedDanceId || !editable) return;
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
-    const name = String(form.get('figureName') ?? '');
+    const names = readFigureNames(form, 'figure');
     await runChange(async () => {
-      await createFigure(selectedDanceId, name);
+      await createFigure(selectedDanceId, names);
       formElement.reset();
     }, 'Figura a její výchozí varianta jsou uložené.');
   }
@@ -187,14 +217,25 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
     }
   }
 
-  async function submitCentralFigureName(event: FormEvent<HTMLFormElement>) {
+  async function submitCentralFigureNames(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const figureId = selectedRoutineFigure?.figureId;
     if (!editable || !figureId) return;
-    const name = String(new FormData(event.currentTarget).get('centralFigureName') ?? '');
+    const names = readFigureNames(new FormData(event.currentTarget), 'centralFigure');
     await runChange(
-      () => renameFigure(figureId, name).then(() => undefined),
-      'Název sdílené figury je uložený ve všech jejích použitích.',
+      () => updateFigureNames(figureId, names).then(() => undefined),
+      'Názvy sdílené figury jsou uložené ve všech jejích použitích.',
+    );
+  }
+
+  async function submitVariantTiming(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const variantId = selectedEffectiveVariant?.id;
+    if (!editable || !variantId) return;
+    const timingNotation = String(new FormData(event.currentTarget).get('timingNotation') ?? '');
+    await runChange(
+      () => updateFigureVariantTiming(variantId, timingNotation).then(() => undefined),
+      'Doby / timing sdílené varianty jsou uložené ve všech jejích použitích.',
     );
   }
 
@@ -294,6 +335,21 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
             <>
               <p className={styles.eyebrow}>{danceLabels[notebook.dance.code as DanceCode]}</p>
               <h2>{selectedRoutine ? selectedRoutine.name : 'Zápis tanečních figur'}</h2>
+              <div className={styles.figureLanguageSwitcher} aria-label="Názvy figur">
+                <span>Názvy figur:</span>
+                <ProfileButton
+                  active={figureNameLanguage === 'cs'}
+                  onClick={() => selectFigureNameLanguage('cs')}
+                >
+                  Česky
+                </ProfileButton>
+                <ProfileButton
+                  active={figureNameLanguage === 'en'}
+                  onClick={() => selectFigureNameLanguage('en')}
+                >
+                  English
+                </ProfileButton>
+              </div>
               {!editable && (
                 <p className={styles.readOnlyNotice}>Host může zápisník pouze prohlížet.</p>
               )}
@@ -302,22 +358,26 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
                 <div className={styles.capturePanels}>
                   <section className={styles.capturePanel}>
                     <h3>Nová figura</h3>
-                    <p>Stačí název. Výchozí varianta vznikne automaticky.</p>
+                    <p>Stačí český nebo anglický název. Výchozí varianta vznikne automaticky.</p>
                     {editable && (
                       <form
                         className={styles.inlineForm}
                         onSubmit={(event) => void submitFigure(event)}
                       >
                         <label>
-                          Název figury
-                          <input name="figureName" required maxLength={200} />
+                          Český název
+                          <input name="figureNameCs" maxLength={200} />
+                        </label>
+                        <label>
+                          English name
+                          <input name="figureNameEn" maxLength={200} />
                         </label>
                         <button type="submit" disabled={saving}>
                           Vytvořit figuru
                         </button>
                       </form>
                     )}
-                    <FigureLibrary figures={notebook.figures} />
+                    <FigureLibrary figures={notebook.figures} language={figureNameLanguage} />
                   </section>
                   <section className={styles.capturePanel}>
                     <h3>Nová sestava</h3>
@@ -359,6 +419,7 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
                         totalSections={selectedRoutine.sections.length}
                         allSections={selectedRoutine.sections}
                         figures={notebook.figures}
+                        figureNameLanguage={figureNameLanguage}
                         editable={editable}
                         saving={saving}
                         selectedRoutineFigureId={selectedRoutineFigureId}
@@ -370,7 +431,11 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
                             ]),
                           )
                         }
-                        onSelect={setSelectedRoutineFigureId}
+                        onSelect={(routineFigureId) =>
+                          setSelectedRoutineFigureId((current) =>
+                            current === routineFigureId ? null : routineFigureId,
+                          )
+                        }
                         onRename={(name) =>
                           runChange(
                             () =>
@@ -410,9 +475,9 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
                             'Figura je přiřazená k výskytu.',
                           )
                         }
-                        onCreateInline={(routineFigureId, name) =>
+                        onCreateInline={(routineFigureId, names) =>
                           runChange(
-                            () => createFigureForRoutineFigure(routineFigureId, name),
+                            () => createFigureForRoutineFigure(routineFigureId, names),
                             'Nová figura a její výchozí varianta jsou přiřazené.',
                           )
                         }
@@ -428,6 +493,19 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
                             'Výskyt je přesunutý do vybrané části sestavy.',
                           )
                         }
+                        onRemove={(routineFigureId) => {
+                          if (
+                            !window.confirm(
+                              'Odebrat tuto figuru ze sestavy? Sdílená definice figury zůstane zachována.',
+                            )
+                          ) {
+                            return;
+                          }
+                          void runChange(async () => {
+                            await removeRoutineFigure(routineFigureId);
+                            setSelectedRoutineFigureId(null);
+                          }, 'Figura byla odebraná ze sestavy.');
+                        }}
                         onDone={(routineFigureId, done) =>
                           runChange(
                             () => setRoutineFigureDone(routineFigureId, done).then(() => undefined),
@@ -477,33 +555,73 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
         <aside className={styles.inspector} aria-label="Podrobnosti a nastavení">
           <section className={styles.scopePanel}>
             <h2>Sdílená definice</h2>
-            {selectedRoutineFigure?.figureName ? (
+            {selectedRoutineFigure?.figureNameCs || selectedRoutineFigure?.figureNameEn ? (
               <>
                 <p>Sdílená definice – změny se projeví ve všech použitích.</p>
-                <strong>{selectedRoutineFigure.figureName}</strong>
+                <FigureNames
+                  figure={{
+                    nameCs: selectedRoutineFigure.figureNameCs,
+                    nameEn: selectedRoutineFigure.figureNameEn,
+                  }}
+                  language={figureNameLanguage}
+                />
                 <small>
-                  {selectedRoutineFigure.figureVariantName ?? 'Varianta zatím není vybraná.'}
+                  {selectedRoutineFigure.figureVariantName &&
+                  !isImplicitDefaultVariant(selectedRoutineFigure.figureVariantName)
+                    ? selectedRoutineFigure.figureVariantName
+                    : selectedEffectiveVariant
+                      ? null
+                      : 'Varianta zatím není vybraná.'}
                 </small>
                 {editable && (
                   <form
-                    key={`${selectedRoutineFigure.figureId}:${selectedRoutineFigure.figureName}`}
+                    key={`${selectedRoutineFigure.figureId}:${selectedRoutineFigure.figureNameCs}:${selectedRoutineFigure.figureNameEn}`}
                     className={styles.inlineForm}
-                    onSubmit={(event) => void submitCentralFigureName(event)}
+                    onSubmit={(event) => void submitCentralFigureNames(event)}
                   >
                     <label>
-                      Název figury
+                      Český název
                       <input
-                        name="centralFigureName"
-                        required
+                        name="centralFigureNameCs"
                         maxLength={200}
-                        defaultValue={selectedRoutineFigure.figureName}
+                        defaultValue={selectedRoutineFigure.figureNameCs ?? ''}
+                      />
+                    </label>
+                    <label>
+                      English name
+                      <input
+                        name="centralFigureNameEn"
+                        maxLength={200}
+                        defaultValue={selectedRoutineFigure.figureNameEn ?? ''}
                       />
                     </label>
                     <button type="submit" disabled={saving}>
-                      Přejmenovat figuru
+                      Uložit názvy figury
                     </button>
                   </form>
                 )}
+                {selectedEffectiveVariant && editable ? (
+                  <form
+                    className={styles.inlineForm}
+                    onSubmit={(event) => void submitVariantTiming(event)}
+                  >
+                    <label>
+                      Doby / timing
+                      <input
+                        name="timingNotation"
+                        maxLength={200}
+                        placeholder="např. 1 2 3 nebo 1 – 2 & 3"
+                        defaultValue={selectedEffectiveVariant.timingNotation ?? ''}
+                      />
+                    </label>
+                    <button type="submit" disabled={saving}>
+                      Uložit timing
+                    </button>
+                    <small>Sdílená varianta – změna se projeví ve všech jejích použitích.</small>
+                  </form>
+                ) : selectedFigure && selectedFigure.variants.length > 1 ? (
+                  <p>Pro zadání dob / timingu vyberte variantu figury.</p>
+                ) : null}
               </>
             ) : (
               <p>Vyberte výskyt a přiřaďte mu figuru nebo vytvořte novou přímo v sestavě.</p>
@@ -565,6 +683,7 @@ function RoutineSectionBlock({
   totalSections,
   allSections,
   figures,
+  figureNameLanguage,
   editable,
   saving,
   selectedRoutineFigureId,
@@ -578,6 +697,7 @@ function RoutineSectionBlock({
   onCreateInline,
   onMoveFigure,
   onMoveToSection,
+  onRemove,
   onDone,
 }: {
   readonly routineSection: RoutineSection;
@@ -585,6 +705,7 @@ function RoutineSectionBlock({
   readonly totalSections: number;
   readonly allSections: readonly RoutineSection[];
   readonly figures: DanceNotebook['figures'];
+  readonly figureNameLanguage: FigureNameLanguage;
   readonly editable: boolean;
   readonly saving: boolean;
   readonly selectedRoutineFigureId: string | null;
@@ -599,12 +720,16 @@ function RoutineSectionBlock({
     figureId: string,
     figureVariantId: string | null,
   ) => Promise<void>;
-  readonly onCreateInline: (routineFigureId: string, name: string) => Promise<void>;
+  readonly onCreateInline: (
+    routineFigureId: string,
+    names: { readonly nameCs: string | null; readonly nameEn: string | null },
+  ) => Promise<void>;
   readonly onMoveFigure: (
     routineFigureId: string,
     beforeRoutineFigureId: string | null,
   ) => Promise<void>;
   readonly onMoveToSection: (routineFigureId: string, routineSectionId: string) => Promise<void>;
+  readonly onRemove: (routineFigureId: string) => void;
   readonly onDone: (routineFigureId: string, done: boolean) => Promise<void>;
 }) {
   async function submitRename(event: FormEvent<HTMLFormElement>) {
@@ -676,6 +801,7 @@ function RoutineSectionBlock({
               total={routineSection.routineFigures.length}
               allSections={allSections}
               figures={figures}
+              figureNameLanguage={figureNameLanguage}
               editable={editable}
               saving={saving}
               selected={routineFigure.id === selectedRoutineFigureId}
@@ -696,6 +822,7 @@ function RoutineSectionBlock({
               onMoveToSection={(routineSectionId) =>
                 onMoveToSection(routineFigure.id, routineSectionId)
               }
+              onRemove={() => onRemove(routineFigure.id)}
               onDone={(done) => onDone(routineFigure.id, done)}
             />
           ))}
@@ -722,6 +849,7 @@ function RoutineFigureRow({
   total,
   allSections,
   figures,
+  figureNameLanguage,
   editable,
   saving,
   selected,
@@ -731,6 +859,7 @@ function RoutineFigureRow({
   onMoveUp,
   onMoveDown,
   onMoveToSection,
+  onRemove,
   onDone,
 }: {
   readonly routineFigure: RoutineFigure;
@@ -739,34 +868,55 @@ function RoutineFigureRow({
   readonly total: number;
   readonly allSections: readonly RoutineSection[];
   readonly figures: DanceNotebook['figures'];
+  readonly figureNameLanguage: FigureNameLanguage;
   readonly editable: boolean;
   readonly saving: boolean;
   readonly selected: boolean;
   readonly onSelect: () => void;
   readonly onAssign: (figureId: string, figureVariantId: string | null) => Promise<void>;
-  readonly onCreateInline: (name: string) => Promise<void>;
+  readonly onCreateInline: (names: {
+    readonly nameCs: string | null;
+    readonly nameEn: string | null;
+  }) => Promise<void>;
   readonly onMoveUp: () => Promise<void>;
   readonly onMoveDown: () => Promise<void>;
   readonly onMoveToSection: (routineSectionId: string) => Promise<void>;
+  readonly onRemove: () => void;
   readonly onDone: (done: boolean) => Promise<void>;
 }) {
-  function selectAssignment(event: ChangeEvent<HTMLSelectElement>) {
-    const [figureId, figureVariantId] = event.target.value.split(':');
+  const [showQuickCreate, setShowQuickCreate] = useState(!routineFigure.figureId);
+  const selectedFigure = figures.find((figure) => figure.id === routineFigure.figureId) ?? null;
+  const variants = selectedFigure?.variants ?? [];
+  const effectiveVariant = routineFigure.figureVariantId
+    ? (variants.find((variant) => variant.id === routineFigure.figureVariantId) ?? null)
+    : variants.length === 1
+      ? (variants[0] ?? null)
+      : null;
+  const showVariantSelector = variants.length > 1;
+
+  function selectFigure(event: ChangeEvent<HTMLSelectElement>) {
+    const figureId = event.target.value;
     if (!figureId) return;
-    void onAssign(figureId, figureVariantId || null);
+    const figure = figures.find((item) => item.id === figureId);
+    const onlyVariant = figure?.variants.length === 1 ? figure.variants[0] : null;
+    setShowQuickCreate(false);
+    void onAssign(figureId, onlyVariant?.id ?? null);
+  }
+
+  function selectVariant(event: ChangeEvent<HTMLSelectElement>) {
+    if (!selectedFigure) return;
+    void onAssign(selectedFigure.id, event.target.value || null);
   }
 
   async function submitInline(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
-    await onCreateInline(String(form.get('inlineFigureName') ?? ''));
+    await onCreateInline(readFigureNames(form, 'inlineFigure'));
     formElement.reset();
+    setShowQuickCreate(false);
   }
 
-  const selectedValue = routineFigure.figureId
-    ? `${routineFigure.figureId}:${routineFigure.figureVariantId ?? ''}`
-    : '';
   return (
     <li className={selected ? styles.routineFigureSelected : styles.routineFigure}>
       <button
@@ -777,8 +927,19 @@ function RoutineFigureRow({
       >
         <span className={styles.occurrenceNumber}>{displayPosition}</span>
         <span className={styles.occurrenceDetails}>
-          <strong>{routineFigure.figureName ?? `Figura ${displayPosition} — nevybraná`}</strong>
-          {routineFigure.figureVariantName && <small>{routineFigure.figureVariantName}</small>}
+          {routineFigure.figureNameCs || routineFigure.figureNameEn ? (
+            <FigureNames
+              figure={{ nameCs: routineFigure.figureNameCs, nameEn: routineFigure.figureNameEn }}
+              language={figureNameLanguage}
+            />
+          ) : (
+            <strong>{`Figura ${displayPosition} — nevybraná`}</strong>
+          )}
+          {routineFigure.figureVariantName &&
+            !isImplicitDefaultVariant(routineFigure.figureVariantName) && (
+              <small>{routineFigure.figureVariantName}</small>
+            )}
+          {effectiveVariant?.timingNotation && <small>{effectiveVariant.timingNotation}</small>}
         </span>
         <span className={styles.doneState}>{routineFigure.done ? 'Hotovo' : 'Rozpracováno'}</span>
       </button>
@@ -799,35 +960,70 @@ function RoutineFigureRow({
             </select>
           </label>
           <label>
-            Existující figura nebo varianta
-            <select value={selectedValue} disabled={saving} onChange={selectAssignment}>
+            Figura
+            <select value={routineFigure.figureId ?? ''} disabled={saving} onChange={selectFigure}>
               <option value="">Vyberte…</option>
               {figures.map((figure) => (
-                <optgroup key={figure.id} label={figure.name}>
-                  <option value={`${figure.id}:`}>Pouze figura</option>
-                  {figure.variants.map((variant) => (
-                    <option key={variant.id} value={`${figure.id}:${variant.id}`}>
-                      {variant.name}
-                    </option>
-                  ))}
-                </optgroup>
+                <option key={figure.id} value={figure.id}>
+                  {displayFigureName(figure, figureNameLanguage)}
+                </option>
               ))}
             </select>
           </label>
-          <form className={styles.inlineForm} onSubmit={(event) => void submitInline(event)}>
+          {showVariantSelector && selectedFigure && (
             <label>
-              Nová figura
-              <input
-                name="inlineFigureName"
-                required
-                maxLength={200}
-                placeholder="Název nové figury"
-              />
+              Varianta
+              <select
+                value={routineFigure.figureVariantId ?? ''}
+                disabled={saving}
+                onChange={selectVariant}
+              >
+                <option value="">Pouze figura</option>
+                {variants.map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    {variant.name}
+                  </option>
+                ))}
+              </select>
             </label>
-            <button type="submit" disabled={saving}>
-              Vytvořit a přiřadit
+          )}
+          {!showQuickCreate && routineFigure.figureId && (
+            <button type="button" disabled={saving} onClick={() => setShowQuickCreate(true)}>
+              + Vytvořit novou figuru
             </button>
-          </form>
+          )}
+          {showQuickCreate && (
+            <form className={styles.inlineForm} onSubmit={(event) => void submitInline(event)}>
+              <h5>Nová figura</h5>
+              <label>
+                Český název
+                <input
+                  name="inlineFigureNameCs"
+                  maxLength={200}
+                  placeholder="Název nové figury v češtině"
+                />
+              </label>
+              <label>
+                English name
+                <input
+                  name="inlineFigureNameEn"
+                  maxLength={200}
+                  placeholder="Figure name in English"
+                />
+              </label>
+              <button type="submit" disabled={saving}>
+                Vytvořit a přiřadit
+              </button>
+              {routineFigure.figureId && (
+                <button type="button" disabled={saving} onClick={() => setShowQuickCreate(false)}>
+                  Zrušit
+                </button>
+              )}
+            </form>
+          )}
+          <button type="button" disabled={saving} onClick={onRemove}>
+            Odebrat ze sestavy
+          </button>
           <div className={styles.occurrenceActions}>
             <button type="button" disabled={saving || index === 0} onClick={() => void onMoveUp()}>
               Nahoru
@@ -855,17 +1051,56 @@ function RoutineFigureRow({
   );
 }
 
-function FigureLibrary({ figures }: { readonly figures: DanceNotebook['figures'] }) {
+function FigureLibrary({
+  figures,
+  language,
+}: {
+  readonly figures: DanceNotebook['figures'];
+  readonly language: FigureNameLanguage;
+}) {
   if (figures.length === 0) return <p className={styles.muted}>Zatím žádné figury.</p>;
   return (
     <ul className={styles.figureLibrary}>
       {figures.map((figure) => (
         <li key={figure.id}>
-          <strong>{figure.name}</strong>
-          <small>{figure.variants.map((variant) => variant.name).join(', ')}</small>
+          <FigureNames figure={figure} language={language} />
+          {figure.variants.some((variant) => !isImplicitDefaultVariant(variant.name)) && (
+            <small>
+              {figure.variants
+                .filter((variant) => !isImplicitDefaultVariant(variant.name))
+                .map((variant) => variant.name)
+                .join(', ')}
+            </small>
+          )}
         </li>
       ))}
     </ul>
+  );
+}
+
+function readFigureNames(
+  form: FormData,
+  prefix: string,
+): { nameCs: string | null; nameEn: string | null } {
+  return {
+    nameCs: String(form.get(`${prefix}NameCs`) ?? ''),
+    nameEn: String(form.get(`${prefix}NameEn`) ?? ''),
+  };
+}
+
+function FigureNames({
+  figure,
+  language,
+}: {
+  readonly figure: { readonly nameCs: string | null; readonly nameEn: string | null };
+  readonly language: FigureNameLanguage;
+}) {
+  const names = displayFigureNames(figure, language);
+  return (
+    <span className={styles.figureNames}>
+      <strong>{names.primary}</strong>
+      {names.secondary && <small>{names.secondary}</small>}
+    </span>
   );
 }
 

@@ -170,6 +170,10 @@ Each section can summarize completeness with neutral states such as empty, parti
 
 ## Timing interaction
 
+The notebook may capture `FigureVariant.timingNotation` as a clearly labelled shared-definition field (“Doby / timing”). It is optional readable shorthand, not an exact editor; it is shown compactly on referencing routine rows where space permits. A row title toggles its expanded occurrence context, including for Host, while Host remains unable to mutate the shared definition.
+
+One browser-local Czech/English Figure-name preference applies to normal notebook display, with fallback to the available translation. Compact RoutineFigure rows show the preferred name first and the distinct other translation as secondary information. It never changes the Czech application UI or the shared bilingual Figure editor. The generated default variant remains structurally selected where referenced but its label is omitted from compact rows; a scoped variant selector appears only when there is a meaningful choice. The routine controls select references or explicitly create a new Figure; editing an existing Figure's names belongs only to the shared-definition panel.
+
 Natural notation is accepted before exact subdivisions. An incomplete TimingPattern shows its readable notation and an “Exact timing not entered” badge. It remains selectable.
 
 The timing editor always shows the FigureVariant's TimingScheme when exact values are present. If the variant has none, selecting a Pattern explicitly offers to assign that Pattern's Scheme; notation alone never selects one. A Pattern from another Scheme cannot be silently attached or converted.

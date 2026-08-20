@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { GetAppStateQuery } from '../../src/application/app-state/get-app-state.js';
 import {
   CreateFigureCommand,
-  RenameFigureCommand,
+  UpdateFigureNamesCommand,
+  UpdateFigureVariantTimingCommand,
 } from '../../src/application/figure/figure-use-cases.js';
 import { GetHealthQuery } from '../../src/application/health/get-health.js';
 import {
@@ -21,6 +22,7 @@ import {
   CreateRoutineSectionCommand,
   MoveRoutineFigureCommand,
   MoveRoutineFigureToSectionCommand,
+  RemoveRoutineFigureCommand,
   MoveRoutineSectionCommand,
   RenameRoutineSectionCommand,
   SetRoutineFigureDoneCommand,
@@ -69,15 +71,46 @@ describe('Routine notebook API', () => {
     const waltz = appState.json().dances.find((dance: { code: string }) => dance.code === 'WALTZ');
     expect(waltz).toBeDefined();
 
+    const czechOnly = await app.inject({
+      method: 'POST',
+      url: `/api/dances/${waltz.id}/figures`,
+      payload: { nameCs: 'Promenáda', nameEn: null },
+    });
+    expect(czechOnly.statusCode).toBe(201);
+    expect(czechOnly.json()).toMatchObject({ nameCs: 'Promenáda', nameEn: null });
+    const englishOnly = await app.inject({
+      method: 'POST',
+      url: `/api/dances/${waltz.id}/figures`,
+      payload: { nameCs: null, nameEn: 'Promenade Position' },
+    });
+    expect(englishOnly.statusCode).toBe(201);
+    expect(englishOnly.json()).toMatchObject({ nameCs: null, nameEn: 'Promenade Position' });
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/dances/${waltz.id}/figures`,
+          payload: { nameCs: '  ', nameEn: null },
+        })
+      ).statusCode,
+    ).toBe(400);
+
     const createdFigure = await app.inject({
       method: 'POST',
       url: `/api/dances/${waltz.id}/figures`,
-      payload: { name: 'Natural Turn' },
+      payload: { nameCs: 'Otočka vpravo', nameEn: 'Natural Turn' },
     });
     expect(createdFigure.statusCode).toBe(201);
     const naturalTurn = createdFigure.json();
-    expect(naturalTurn).toMatchObject({ name: 'Natural Turn' });
+    expect(naturalTurn).toMatchObject({ nameCs: 'Otočka vpravo', nameEn: 'Natural Turn' });
     expect(naturalTurn.variants).toHaveLength(1);
+    const timing = await app.inject({
+      method: 'PUT',
+      url: `/api/figure-variants/${naturalTurn.variants[0].id}/timing-notation`,
+      payload: { timingNotation: '1 – 2 & 3' },
+    });
+    expect(timing.statusCode).toBe(200);
+    expect(timing.json().variants[0].timingNotation).toBe('1 – 2 & 3');
 
     const createdRoutine = await app.inject({
       method: 'POST',
@@ -135,7 +168,7 @@ describe('Routine notebook API', () => {
     const inlineFigure = await app.inject({
       method: 'POST',
       url: `/api/routine-figures/${second.id}/figure`,
-      payload: { name: 'Reverse Turn' },
+      payload: { nameCs: 'Otočka vlevo', nameEn: 'Reverse Turn' },
     });
     expect(inlineFigure.statusCode).toBe(201);
     expect(
@@ -206,7 +239,7 @@ describe('Routine notebook API', () => {
           id: second.id,
           sectionId: firstSection.id,
           position: 1,
-          figureName: 'Reverse Turn',
+          figureNameEn: 'Reverse Turn',
           figureVariantName: 'Výchozí varianta',
           done: false,
         }),
@@ -238,6 +271,97 @@ describe('Routine notebook API', () => {
     reopened.close();
   });
 
+  it('removes only the requested RoutineFigure occurrence through its focused endpoint', async () => {
+    const root = await createTemporaryDirectory('routine-figure-removal-api');
+    temporaryDirectories.push(root);
+    const paths = resolveDataPaths(root);
+    const persistence = await initializePersistence({
+      paths,
+      migrationsDirectory: resolve('migrations'),
+    });
+    const app = await buildNotebookServer(persistence);
+    const waltz = new SqliteDanceCatalogue(persistence.database)
+      .list()
+      .find((dance) => dance.code === 'WALTZ');
+    if (!waltz) throw new Error('Testovací Waltz nebyl nalezen.');
+
+    const figure = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/dances/${waltz.id}/figures`,
+        payload: { nameCs: 'Otočka vpravo', nameEn: 'Natural Turn' },
+      })
+    ).json();
+    const routine = (
+      await app.inject({
+        method: 'POST',
+        url: `/api/dances/${waltz.id}/routines`,
+        payload: { name: 'Trénink' },
+      })
+    ).json();
+    const section = routine.sections[0];
+    const occurrences = await Promise.all(
+      [0, 1, 2].map(async () =>
+        (
+          await app.inject({
+            method: 'POST',
+            url: `/api/routine-sections/${section.id}/routine-figures`,
+          })
+        ).json(),
+      ),
+    );
+    for (const occurrence of occurrences) {
+      expect(
+        (
+          await app.inject({
+            method: 'PUT',
+            url: `/api/routine-figures/${occurrence.id}/assignment`,
+            payload: { figureId: figure.id, figureVariantId: null },
+          })
+        ).statusCode,
+      ).toBe(200);
+    }
+
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: `/api/routine-figures/${occurrences[1].id}`,
+    });
+    expect(removed.statusCode).toBe(200);
+    expect(removed.json()).toEqual({ status: 'ok' });
+    expect(
+      (await app.inject({ method: 'DELETE', url: `/api/routine-figures/${occurrences[1].id}` }))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (await app.inject({ method: 'DELETE', url: '/api/routine-figures/neplatne-id' })).statusCode,
+    ).toBe(400);
+
+    const notebook = (
+      await app.inject({ method: 'GET', url: `/api/dances/${waltz.id}/notebook` })
+    ).json();
+    expect(notebook.routines[0].sections[0].routineFigures).toEqual([
+      expect.objectContaining({
+        id: occurrences[0].id,
+        position: 1,
+        figureVariantId: figure.variants[0].id,
+      }),
+      expect.objectContaining({
+        id: occurrences[2].id,
+        position: 2,
+        figureVariantId: figure.variants[0].id,
+      }),
+    ]);
+    expect(notebook.figures).toEqual([
+      expect.objectContaining({
+        id: figure.id,
+        variants: [expect.objectContaining({ id: figure.variants[0].id })],
+      }),
+    ]);
+
+    await app.close();
+    persistence.close();
+  });
+
   it('renames a Figure through its focused endpoint and propagates the central name', async () => {
     const root = await createTemporaryDirectory('figure-rename-api');
     temporaryDirectories.push(root);
@@ -255,7 +379,7 @@ describe('Routine notebook API', () => {
     const createdFigure = await app.inject({
       method: 'POST',
       url: `/api/dances/${waltz.id}/figures`,
-      payload: { name: 'Otočka v pravo' },
+      payload: { nameCs: 'Otočka v pravo', nameEn: null },
     });
     const figure = createdFigure.json();
     const createdRoutine = await app.inject({
@@ -291,13 +415,14 @@ describe('Routine notebook API', () => {
 
     const renamed = await app.inject({
       method: 'PUT',
-      url: `/api/figures/${figure.id}/name`,
-      payload: { name: 'Otočka vpravo' },
+      url: `/api/figures/${figure.id}/names`,
+      payload: { nameCs: 'Otočka vpravo', nameEn: 'Natural Turn' },
     });
     expect(renamed.statusCode).toBe(200);
     expect(renamed.json()).toMatchObject({
       id: figure.id,
-      name: 'Otočka vpravo',
+      nameCs: 'Otočka vpravo',
+      nameEn: 'Natural Turn',
       variants: [{ id: figure.variants[0].id, figureId: figure.id }],
     });
 
@@ -307,13 +432,20 @@ describe('Routine notebook API', () => {
       notebook
         .json()
         .routines[0].sections[0].routineFigures.map(
-          (item: { figureName: string }) => item.figureName,
+          (item: { figureNameCs: string }) => item.figureNameCs,
         ),
     ).toEqual(['Otočka vpravo', 'Otočka vpravo']);
+    const englishOnly = await app.inject({
+      method: 'PUT',
+      url: `/api/figures/${figure.id}/names`,
+      payload: { nameCs: null, nameEn: 'Natural Turn' },
+    });
+    expect(englishOnly.statusCode).toBe(200);
+    expect(englishOnly.json()).toMatchObject({ nameCs: null, nameEn: 'Natural Turn' });
     const invalid = await app.inject({
       method: 'PUT',
-      url: `/api/figures/${figure.id}/name`,
-      payload: { name: '   ' },
+      url: `/api/figures/${figure.id}/names`,
+      payload: { nameCs: '   ', nameEn: null },
     });
     expect(invalid.statusCode).toBe(400);
     expect(invalid.json()).toMatchObject({
@@ -322,8 +454,8 @@ describe('Routine notebook API', () => {
     });
     const unknown = await app.inject({
       method: 'PUT',
-      url: `/api/figures/${createEntityId()}/name`,
-      payload: { name: 'Jiná figura' },
+      url: `/api/figures/${createEntityId()}/names`,
+      payload: { nameCs: 'Jiná figura', nameEn: null },
     });
     expect(unknown.statusCode).toBe(404);
     expect(unknown.json()).toMatchObject({ error: 'figure_not_found' });
@@ -343,9 +475,9 @@ describe('Routine notebook API', () => {
       reloaded
         .json()
         .routines[0].sections[0].routineFigures.map(
-          (item: { figureName: string }) => item.figureName,
+          (item: { figureNameCs: string }) => item.figureNameCs,
         ),
-    ).toEqual(['Otočka vpravo', 'Otočka vpravo']);
+    ).toEqual([null, null]);
     await reopenedApp.close();
     reopened.close();
   });
@@ -366,7 +498,8 @@ async function buildNotebookServer(persistence: PersistenceContext) {
     notebookServices: {
       getDanceNotebook: new GetDanceNotebookQuery(dances, figures, routines),
       createFigure: new CreateFigureCommand(figures),
-      renameFigure: new RenameFigureCommand(figures),
+      updateFigureNames: new UpdateFigureNamesCommand(figures),
+      updateFigureVariantTiming: new UpdateFigureVariantTimingCommand(figures),
       createRoutine: new CreateRoutineCommand(routines),
       createRoutineSection: new CreateRoutineSectionCommand(routines),
       renameRoutineSection: new RenameRoutineSectionCommand(routines),
@@ -376,6 +509,7 @@ async function buildNotebookServer(persistence: PersistenceContext) {
       createFigureForRoutineFigure: new CreateFigureForRoutineFigureCommand(routines),
       moveRoutineFigure: new MoveRoutineFigureCommand(routines),
       moveRoutineFigureToSection: new MoveRoutineFigureToSectionCommand(routines),
+      removeRoutineFigure: new RemoveRoutineFigureCommand(routines),
       setRoutineFigureDone: new SetRoutineFigureDoneCommand(routines),
     },
   });
