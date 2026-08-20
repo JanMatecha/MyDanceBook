@@ -107,11 +107,12 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
   }
 
   function selectDance(danceId: string) {
-    setLoadingNotebook(true);
     setMessage(null);
-    setSelectedDanceId(danceId);
     setSelectedRoutineId(null);
     setSelectedRoutineFigureId(null);
+    if (danceId === selectedDanceId) return;
+    setLoadingNotebook(true);
+    setSelectedDanceId(danceId);
   }
 
   async function refreshNotebook(): Promise<DanceNotebook | null> {
