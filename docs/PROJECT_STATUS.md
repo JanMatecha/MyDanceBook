@@ -22,12 +22,14 @@ state; do not append history or session notes here.
   and opens a new placeholder. The central Figure name can be renamed directly
   from the clearly scoped shared-definition area; the persisted central name is
   immediately shown by every referencing RoutineFigure.
-- Figure names are progressive bilingual shared data: `nameCs` and `nameEn`
-  are independently optional but require one non-blank value. A browser-local
+- Figure names and aliases are progressive shared data: a Figure requires at
+  least one identifier across `nameCs`, `nameEn`, or `aliases`; both official
+  names may be absent when at least one alias exists. A browser-local
   Czech/English display preference applies consistently with fallback to the
-  available name; compact rows show the preferred name followed by a distinct
-  secondary translation. It does not alter either stored field. FigureVariant also
-  supports optional authored `timingNotation`; it is readable shorthand only,
+  available name and then an alias; compact rows show the preferred name followed
+  by a distinct secondary translation. Alias-only quick capture, later official-name
+  refinement, and Dance-scoped alias filtering preserve the same Figure/Variant/
+  RoutineFigure identities. FigureVariant also supports optional authored `timingNotation`; it is readable shorthand only,
   never parsed into exact timing. The generated sole variant is structurally
   real but implicit in normal use: new Figure assignments persist it directly,
   while legacy Figure-only occurrences resolve it for display and shared timing

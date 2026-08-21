@@ -3,6 +3,8 @@ import {
   CreateFigureCommand,
   UpdateFigureNamesCommand,
   UpdateFigureVariantTimingCommand,
+  AddFigureAliasCommand,
+  RemoveFigureAliasCommand,
 } from '../application/figure/figure-use-cases.js';
 import { GetHealthQuery } from '../application/health/get-health.js';
 import {
@@ -58,6 +60,8 @@ async function main(): Promise<void> {
         createFigure: new CreateFigureCommand(figureRepository),
         updateFigureNames: new UpdateFigureNamesCommand(figureRepository),
         updateFigureVariantTiming: new UpdateFigureVariantTimingCommand(figureRepository),
+        addFigureAlias: new AddFigureAliasCommand(figureRepository),
+        removeFigureAlias: new RemoveFigureAliasCommand(figureRepository),
         createRoutine: new CreateRoutineCommand(routineRepository),
         createRoutineSection: new CreateRoutineSectionCommand(routineRepository),
         renameRoutineSection: new RenameRoutineSectionCommand(routineRepository),

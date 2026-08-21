@@ -6,6 +6,7 @@ export interface NewFigureRecord {
   readonly danceId: EntityId;
   readonly nameCs: string | null;
   readonly nameEn: string | null;
+  readonly aliases?: readonly { readonly id: EntityId; readonly value: string }[] | undefined;
   readonly firstVariantId: EntityId;
   readonly firstVariantName: string;
   readonly createdAt: string;
@@ -25,4 +26,9 @@ export interface FigureRepository {
     timingNotation: string | null,
     updatedAt: string,
   ): FigureWithVariants | null;
+  addAlias(
+    figureId: EntityId,
+    alias: { readonly id: EntityId; readonly value: string; readonly createdAt: string },
+  ): FigureWithVariants | null;
+  removeAlias(aliasId: EntityId, updatedAt: string): FigureWithVariants | null | 'last_identifier';
 }

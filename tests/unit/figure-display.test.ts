@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { displayFigureName, displayFigureNames } from '../../src/frontend/figure-display.js';
+import {
+  displayFigureName,
+  displayFigureNames,
+  matchesFigureFilter,
+} from '../../src/frontend/figure-display.js';
 
 describe('Figure display names', () => {
   it('prefers Czech with English fallback', () => {
@@ -8,6 +12,21 @@ describe('Figure display names', () => {
       'Otočka vpravo',
     );
     expect(displayFigureName({ nameCs: null, nameEn: 'Natural Turn' }, 'cs')).toBe('Natural Turn');
+  });
+
+  it('falls back to an alias and filters every identifier case-insensitively', () => {
+    const figure = {
+      nameCs: 'Otáčka vpravo',
+      nameEn: 'Natural Turn',
+      aliases: [{ value: 'Trojkrok' }],
+    };
+    expect(
+      displayFigureName({ nameCs: null, nameEn: null, aliases: [{ value: 'Trojkrok' }] }, 'cs'),
+    ).toBe('Trojkrok');
+    expect(matchesFigureFilter(figure, 'OTÁČKA')).toBe(true);
+    expect(matchesFigureFilter(figure, 'natural')).toBe(true);
+    expect(matchesFigureFilter(figure, 'TROJKROK')).toBe(true);
+    expect(matchesFigureFilter(figure, 'whisk')).toBe(false);
   });
 
   it('prefers English with Czech fallback', () => {

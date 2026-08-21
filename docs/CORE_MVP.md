@@ -21,7 +21,7 @@ This document is authoritative for the first usable release. “Core MVP” mean
 
 ### Figures and variants
 
-- A Figure can be created with Dance plus a Czech name, English name, or both; at least one non-blank name is required.
+- A Figure can be created with Dance plus a Czech name, English name, an informal alias, or any combination; at least one non-blank identifier is required. Alias-only capture supports training-time progressive refinement without inventing an official name.
 - Figure identity includes Dance.
 - Figure creation atomically creates its first FigureVariant and does not require the user to name that single variant manually.
 - A FigureVariant is one reusable whole-couple execution with visibly and structurally separate couple, Leader, and Follower data.

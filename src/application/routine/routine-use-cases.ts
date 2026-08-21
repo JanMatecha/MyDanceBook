@@ -1,6 +1,8 @@
 import {
   defaultFigureVariantName,
   toFigureNames,
+  toFigureAliases,
+  requireFigureIdentifier,
   type FigureWithVariants,
 } from '../../domain/figure.js';
 import { createEntityId, type EntityId } from '../../domain/identity.js';
@@ -152,12 +154,20 @@ export class CreateFigureForRoutineFigureCommand {
 
   public execute(
     routineFigureId: EntityId,
-    names: { readonly nameCs: string | null; readonly nameEn: string | null },
+    names: {
+      readonly nameCs: string | null;
+      readonly nameEn: string | null;
+      readonly aliases?: readonly string[] | undefined;
+    },
   ): RoutineFigureAssignmentResult {
     const createdAt = this.now().toISOString();
+    const normalizedNames = toFigureNames(names);
+    const aliases = toFigureAliases(names.aliases ?? []);
+    requireFigureIdentifier(normalizedNames, aliases);
     const figure: Omit<NewFigureRecord, 'danceId'> = {
       id: this.createId(),
-      ...toFigureNames(names),
+      ...normalizedNames,
+      aliases: aliases.map((value) => ({ id: this.createId(), value })),
       firstVariantId: this.createId(),
       firstVariantName: defaultFigureVariantName,
       createdAt,

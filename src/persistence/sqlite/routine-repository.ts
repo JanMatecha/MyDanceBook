@@ -347,6 +347,13 @@ export class SqliteRoutineRepository implements RoutineRepository {
           figure.createdAt,
           figure.createdAt,
         );
+      const insertAlias = this.database.prepare(
+        `INSERT INTO figure_aliases (id, figure_id, value, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      );
+      for (const alias of figure.aliases ?? []) {
+        insertAlias.run(alias.id, figure.id, alias.value, figure.createdAt, figure.createdAt);
+      }
       this.database
         .prepare(
           `INSERT INTO figure_variants (id, figure_id, name, timing_notation, created_at, updated_at)

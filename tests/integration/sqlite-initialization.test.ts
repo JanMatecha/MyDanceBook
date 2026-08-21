@@ -30,7 +30,7 @@ describe('SQLite initialization', () => {
     expect(first.database.pragma('busy_timeout', { simple: true })).toBe(5000);
     expect(first.database.pragma('integrity_check', { simple: true })).toBe('ok');
     expect(first.database.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get()).toEqual(
-      { count: 6 },
+      { count: 7 },
     );
     expect(first.database.prepare('SELECT COUNT(*) AS count FROM dances').get()).toEqual({
       count: 10,
@@ -40,7 +40,7 @@ describe('SQLite initialization', () => {
     const second = await initializePersistence(options);
     expect(
       second.database.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get(),
-    ).toEqual({ count: 6 });
+    ).toEqual({ count: 7 });
     second.close();
   });
 });
