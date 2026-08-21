@@ -8,7 +8,9 @@
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "dev:lan": "node scripts/dev.mjs --lan",
     "dev:frontend": "vite --config vite.config.ts",
+    "dev:frontend:lan": "vite --config vite.config.ts --host 0.0.0.0 --strictPort",
     "dev:server": "tsx watch src/server/main.ts",
     "build": "npm run build:frontend && npm run build:server",
     "build:frontend": "vite build --config vite.config.ts",

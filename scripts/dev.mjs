@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 
 import { createNpmScriptCommand } from './npm-script-command.mjs';
+import { getDevelopmentScripts } from './dev-options.mjs';
 
 function startNpmScript(script) {
   const command = createNpmScriptCommand({
@@ -11,7 +12,8 @@ function startNpmScript(script) {
   return spawn(command.executable, command.args, { stdio: 'inherit' });
 }
 
-const children = [startNpmScript('dev:server'), startNpmScript('dev:frontend')];
+const { frontendScript, serverScript } = getDevelopmentScripts(process.argv.slice(2));
+const children = [startNpmScript(serverScript), startNpmScript(frontendScript)];
 
 let stopping = false;
 

@@ -29,6 +29,34 @@ npm install
 npm run dev
 ```
 
+For development from a phone, tablet, or second computer on the same trusted
+private LAN, use:
+
+```powershell
+npm run dev:lan
+```
+
+LAN mode keeps the frontend on port `5173` and binds Vite to `0.0.0.0` with
+strict port handling. Vite prints a Network URL such as
+`http://192.168.x.x:5173/`; open that URL on the second device. The frontend
+continues to use relative `/api` requests, which Vite proxies to the local
+Fastify backend at `http://127.0.0.1:3000`, so the second device never needs to
+know port `3000`.
+
+Manual LAN use:
+
+1. Put the PC and phone/tablet on the same trusted LAN/Wi-Fi.
+2. Start `npm run dev:lan` on the PC.
+3. Open the Vite Network URL on the second device and keep the PC running.
+
+Data remains stored only on the PC/server and is accessed by the second device
+over HTTP. Stopping the development process makes the application unavailable.
+LAN mode is not Internet hosting: do not use it on an untrusted/public Wi-Fi
+network, configure router port forwarding, or expose it to the public Internet.
+There is no authentication yet. If Windows Firewall prompts on first use,
+allow Node.js on Private networks / Soukromé sítě only; do not enable Public
+networks.
+
 On Windows PowerShell systems where the local execution policy blocks `npm.ps1`, use
 `npm.cmd run dev`; changing the system-wide execution policy is not required.
 

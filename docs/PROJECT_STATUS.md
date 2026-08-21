@@ -48,6 +48,9 @@ state; do not append history or session notes here.
   Docker/runtime checks, and the React/Vite + Fastify application shell. The
   first post-Pair schema migration requires a verified pre-migration backup and
   has a non-empty Phase 2.1 Pair-database migration test.
+- LAN development access: `npm run dev:lan` starts the same backend and a Vite
+  frontend bound to `0.0.0.0` on strict port `5173`; the existing relative
+  `/api` proxy path is unchanged.
 
 ## Not implemented yet
 
@@ -61,6 +64,7 @@ and collaboration capabilities are not yet available.
 Continue entering and reopening real Waltz pair data with named RoutineSections,
 the compact hierarchical routine overview, bilingual central Figure names, and
 lightweight shared variant timing.
+For trusted-LAN development, use the documented `npm run dev:lan` workflow.
 Select the next narrow Phase 2 slice from observed notebook use, keeping the
 workflow generic for every Dance and deferring advanced technique, timing,
 geometry, and future roadmap work until it is needed.
