@@ -117,11 +117,12 @@ Core MVP floors are concrete rectangles only; dimensionless Floor objects do not
 | Field | Requirement | Meaning |
 | --- | --- | --- |
 | `danceId` | required | Part of figure identity |
-| `nameCs` | optional | Czech figure name; at least one of the two names is required |
-| `nameEn` | optional | English figure name; at least one of the two names is required |
+| `nameCs` | optional | Czech official figure name |
+| `nameEn` | optional | English official figure name |
+| `aliases` | 0..N | Stable-id, shared informal or alternative identifiers |
 | `archivedAt` | optional | Hidden from new selection, references remain valid |
 
-Blank names normalize to absent; both names may not be absent. Czech is the primary display name in the Czech UI and English is secondary when both exist. A transaction creating Figure also creates its first FigureVariant.
+Blank names normalize to absent. A Figure requires at least one identifier across `nameCs`, `nameEn`, or an alias; alias-only capture is intentional progressive capture. Aliases are shared central Figure knowledge (not RoutineFigure fields), preserve authored spelling, and are unique case-insensitively only within their Figure. Czech is the primary display name in the Czech UI and English is secondary when both exist; normal display falls back to the first alias. A transaction creating Figure also creates its first FigureVariant.
 
 The user's selected Czech/English presentation is operational browser state, not Figure identity or shared Pair data. Normal display falls back to the available name when the preferred one is absent.
 

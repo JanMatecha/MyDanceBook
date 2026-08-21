@@ -442,7 +442,7 @@ describe('Routine notebook API', () => {
     expect(invalid.statusCode).toBe(400);
     expect(invalid.json()).toMatchObject({
       error: 'invalid_request',
-      message: 'Název figury musí obsahovat 1 až 200 znaků.',
+      message: 'Figura musí mít český název, anglický název nebo alespoň jednu přezdívku.',
     });
     const unknown = await app.inject({
       method: 'PUT',

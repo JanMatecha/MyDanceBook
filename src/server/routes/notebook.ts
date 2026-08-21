@@ -5,6 +5,8 @@ import type {
   CreateFigureCommand,
   UpdateFigureNamesCommand,
   UpdateFigureVariantTimingCommand,
+  AddFigureAliasCommand,
+  RemoveFigureAliasCommand,
 } from '../../application/figure/figure-use-cases.js';
 import type { GetDanceNotebookQuery } from '../../application/routine/get-dance-notebook.js';
 import {
@@ -19,7 +21,11 @@ import {
   MoveRoutineSectionCommand,
   RenameRoutineSectionCommand,
 } from '../../application/routine/routine-use-cases.js';
-import { InvalidFigureNameError } from '../../domain/figure.js';
+import {
+  InvalidFigureAliasError,
+  InvalidFigureIdentifierError,
+  InvalidFigureNameError,
+} from '../../domain/figure.js';
 import { parseEntityId } from '../../domain/identity.js';
 import { InvalidRoutineNameError, InvalidRoutineSectionNameError } from '../../domain/routine.js';
 
@@ -29,14 +35,20 @@ const entityIdSchema = z
   .refine((value) => parseEntityId(value) !== null);
 const danceParamsSchema = z.object({ danceId: entityIdSchema });
 const figureParamsSchema = z.object({ figureId: entityIdSchema });
+const figureAliasParamsSchema = z.object({ figureAliasId: entityIdSchema });
 const figureVariantParamsSchema = z.object({ figureVariantId: entityIdSchema });
 const routineParamsSchema = z.object({ routineId: entityIdSchema });
 const routineSectionParamsSchema = z.object({ routineSectionId: entityIdSchema });
 const routineFigureParamsSchema = z.object({ routineFigureId: entityIdSchema });
 const nameSchema = z.object({ name: z.string() }).strict();
 const figureNamesSchema = z
-  .object({ nameCs: z.string().nullable(), nameEn: z.string().nullable() })
+  .object({
+    nameCs: z.string().nullable(),
+    nameEn: z.string().nullable(),
+    aliases: z.array(z.string()).optional(),
+  })
   .strict();
+const aliasSchema = z.object({ alias: z.string() }).strict();
 const timingNotationSchema = z.object({ timingNotation: z.string().nullable() }).strict();
 const assignmentSchema = z
   .object({ figureId: entityIdSchema, figureVariantId: entityIdSchema.nullable().optional() })
@@ -67,6 +79,15 @@ const figureSchema = z.object({
   nameEn: z.string().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
+  aliases: z.array(
+    z.object({
+      id: z.string().uuid(),
+      figureId: z.string().uuid(),
+      value: z.string(),
+      createdAt: z.iso.datetime(),
+      updatedAt: z.iso.datetime(),
+    }),
+  ),
   variants: z.array(variantSchema).min(1),
 });
 const routineFigureSchema = z.object({
@@ -112,6 +133,8 @@ export interface NotebookRouteServices {
   readonly createFigure: CreateFigureCommand;
   readonly updateFigureNames: UpdateFigureNamesCommand;
   readonly updateFigureVariantTiming: UpdateFigureVariantTimingCommand;
+  readonly addFigureAlias?: AddFigureAliasCommand;
+  readonly removeFigureAlias?: RemoveFigureAliasCommand;
   readonly createRoutine: CreateRoutineCommand;
   readonly createRoutineSection: CreateRoutineSectionCommand;
   readonly renameRoutineSection: RenameRoutineSectionCommand;
@@ -164,6 +187,32 @@ export function registerNotebookRoutes(
     } catch (cause: unknown) {
       return sendNotebookError(reply, cause);
     }
+  });
+
+  app.post('/api/figures/:figureId/aliases', async (request, reply) => {
+    const figureId = readId(figureParamsSchema.safeParse(request.params), reply);
+    const input = aliasSchema.safeParse(request.body);
+    if (!figureId || !input.success) return sendInvalidRequest(reply);
+    try {
+      const figure = services.addFigureAlias?.execute(figureId, input.data.alias);
+      if (!figure)
+        return reply.code(404).send(notFound('figure_not_found', 'Figura nebyla nalezena.'));
+      return reply.code(201).send(figureSchema.parse(figure));
+    } catch (cause: unknown) {
+      return sendNotebookError(reply, cause);
+    }
+  });
+  app.delete('/api/figure-aliases/:figureAliasId', async (request, reply) => {
+    const aliasId = readId(figureAliasParamsSchema.safeParse(request.params), reply);
+    if (!aliasId) return;
+    const result = services.removeFigureAlias?.execute(aliasId);
+    if (result === null)
+      return reply.code(404).send(notFound('figure_alias_not_found', 'Přezdívka nebyla nalezena.'));
+    if (result === 'last_identifier')
+      return reply
+        .code(400)
+        .send({ error: 'invalid_request', message: 'Nelze odebrat poslední označení figury.' });
+    return reply.code(200).send(figureSchema.parse(result));
   });
 
   app.put('/api/figure-variants/:figureVariantId/timing-notation', async (request, reply) => {
@@ -339,6 +388,7 @@ function readId(
   parsed: z.ZodSafeParseResult<{
     danceId?: string;
     figureId?: string;
+    figureAliasId?: string;
     figureVariantId?: string;
     routineId?: string;
     routineSectionId?: string;
@@ -353,6 +403,7 @@ function readId(
   const value =
     parsed.data.danceId ??
     parsed.data.figureId ??
+    parsed.data.figureAliasId ??
     parsed.data.figureVariantId ??
     parsed.data.routineId ??
     parsed.data.routineSectionId ??
@@ -400,6 +451,8 @@ function sendInvalidRequest(reply: FastifyReply) {
 function sendNotebookError(reply: FastifyReply, cause: unknown) {
   if (
     cause instanceof InvalidFigureNameError ||
+    cause instanceof InvalidFigureAliasError ||
+    cause instanceof InvalidFigureIdentifierError ||
     cause instanceof InvalidRoutineNameError ||
     cause instanceof InvalidRoutineSectionNameError
   ) {

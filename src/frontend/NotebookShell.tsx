@@ -2,6 +2,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from '
 
 import {
   addPlaceholder,
+  addFigureAlias,
   assignRoutineFigure,
   createFigure,
   createFigureForRoutineFigure,
@@ -12,6 +13,7 @@ import {
   moveRoutineFigureToSection,
   moveRoutineSection,
   removeRoutineFigure,
+  removeFigureAlias,
   updateFigureNames,
   updateFigureVariantTiming,
   renameRoutineSection,
@@ -37,6 +39,7 @@ import {
   displayFigureName,
   displayFigureNames,
   isImplicitDefaultVariant,
+  matchesFigureFilter,
   type FigureNameLanguage,
 } from './figure-display';
 import { flattenRoutineFigures } from './routine-hierarchy';
@@ -225,6 +228,17 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
       () => updateFigureNames(figureId, names).then(() => undefined),
       'Názvy sdílené figury jsou uložené ve všech jejích použitích.',
     );
+  }
+  async function submitFigureAlias(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const figureId = selectedRoutineFigure?.figureId;
+    if (!editable || !figureId) return;
+    const alias = String(new FormData(event.currentTarget).get('figureAlias') ?? '');
+    await runChange(
+      () => addFigureAlias(figureId, alias).then(() => undefined),
+      'Přezdívka sdílené figury je uložená ve všech použitích.',
+    );
+    event.currentTarget.reset();
   }
 
   async function submitVariantTiming(event: FormEvent<HTMLFormElement>) {
@@ -546,13 +560,14 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
         <aside className={styles.inspector} aria-label="Podrobnosti a nastavení">
           <section className={styles.scopePanel}>
             <h2>Sdílená definice</h2>
-            {selectedRoutineFigure?.figureNameCs || selectedRoutineFigure?.figureNameEn ? (
+            {selectedRoutineFigure?.figureId ? (
               <>
                 <p>Sdílená definice – změny se projeví ve všech použitích.</p>
                 <FigureNames
                   figure={{
                     nameCs: selectedRoutineFigure.figureNameCs,
                     nameEn: selectedRoutineFigure.figureNameEn,
+                    aliases: selectedFigure?.aliases,
                   }}
                   language={figureNameLanguage}
                 />
@@ -588,6 +603,42 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
                     </label>
                     <button type="submit" disabled={saving}>
                       Uložit názvy figury
+                    </button>
+                  </form>
+                )}
+                <h3>Přezdívky / alternativní názvy</h3>
+                <ul>
+                  {(selectedFigure?.aliases ?? []).map((alias) => (
+                    <li key={alias.id}>
+                      {alias.value}{' '}
+                      {editable && (
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() =>
+                            void runChange(
+                              () => removeFigureAlias(alias.id).then(() => undefined),
+                              'Přezdívka byla odebrána.',
+                            )
+                          }
+                        >
+                          Odebrat
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {editable && (
+                  <form
+                    className={styles.inlineForm}
+                    onSubmit={(event) => void submitFigureAlias(event)}
+                  >
+                    <label>
+                      Přezdívka / alternativní název
+                      <input name="figureAlias" maxLength={200} placeholder="další přezdívka…" />
+                    </label>
+                    <button type="submit" disabled={saving}>
+                      Přidat
                     </button>
                   </form>
                 )}
@@ -863,6 +914,7 @@ function RoutineFigureRow({
   readonly onCreateInline: (names: {
     readonly nameCs: string | null;
     readonly nameEn: string | null;
+    readonly aliases?: readonly string[];
   }) => Promise<void>;
   readonly onMoveUp: () => Promise<void>;
   readonly onMoveDown: () => Promise<void>;
@@ -870,6 +922,7 @@ function RoutineFigureRow({
   readonly onRemove: () => void;
 }) {
   const [showQuickCreate, setShowQuickCreate] = useState(!routineFigure.figureId);
+  const [filter, setFilter] = useState('');
   const selectedFigure = figures.find((figure) => figure.id === routineFigure.figureId) ?? null;
   const variants = selectedFigure?.variants ?? [];
   const effectiveVariant = routineFigure.figureVariantId
@@ -897,7 +950,11 @@ function RoutineFigureRow({
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
-    await onCreateInline(readFigureNames(form, 'inlineFigure'));
+    const names = readFigureNames(form, 'inlineFigure');
+    await onCreateInline({
+      ...names,
+      aliases: [String(form.get('inlineFigureAlias') ?? '')].filter(Boolean),
+    });
     formElement.reset();
     setShowQuickCreate(false);
   }
@@ -912,9 +969,13 @@ function RoutineFigureRow({
       >
         <span className={styles.occurrenceNumber}>{displayPosition}</span>
         <span className={styles.occurrenceDetails}>
-          {routineFigure.figureNameCs || routineFigure.figureNameEn ? (
+          {routineFigure.figureId ? (
             <FigureNames
-              figure={{ nameCs: routineFigure.figureNameCs, nameEn: routineFigure.figureNameEn }}
+              figure={{
+                nameCs: routineFigure.figureNameCs,
+                nameEn: routineFigure.figureNameEn,
+                aliases: selectedFigure?.aliases,
+              }}
               language={figureNameLanguage}
             />
           ) : (
@@ -945,13 +1006,23 @@ function RoutineFigureRow({
           </label>
           <label>
             Figura
+            <input
+              value={filter}
+              placeholder="Hledat figuru"
+              onChange={(event) => setFilter(event.target.value)}
+            />
             <select value={routineFigure.figureId ?? ''} disabled={saving} onChange={selectFigure}>
               <option value="">Vyberte…</option>
-              {figures.map((figure) => (
-                <option key={figure.id} value={figure.id}>
-                  {displayFigureName(figure, figureNameLanguage)}
-                </option>
-              ))}
+              {figures
+                .filter((figure) => matchesFigureFilter(figure, filter))
+                .map((figure) => (
+                  <option key={figure.id} value={figure.id}>
+                    {displayFigureName(figure, figureNameLanguage)}
+                    {figure.aliases.length > 0
+                      ? ` — ${figure.aliases.map((alias) => alias.value).join(', ')}`
+                      : ''}
+                  </option>
+                ))}
             </select>
           </label>
           {showVariantSelector && selectedFigure && (
@@ -994,6 +1065,10 @@ function RoutineFigureRow({
                   maxLength={200}
                   placeholder="Figure name in English"
                 />
+              </label>
+              <label>
+                Přezdívka / alternativní název
+                <input name="inlineFigureAlias" maxLength={200} placeholder="Např. Trojkrok" />
               </label>
               <button type="submit" disabled={saving}>
                 Vytvořit a přiřadit
@@ -1067,7 +1142,11 @@ function FigureNames({
   figure,
   language,
 }: {
-  readonly figure: { readonly nameCs: string | null; readonly nameEn: string | null };
+  readonly figure: {
+    readonly nameCs: string | null;
+    readonly nameEn: string | null;
+    readonly aliases?: readonly { readonly value: string }[] | undefined;
+  };
   readonly language: FigureNameLanguage;
 }) {
   const names = displayFigureNames(figure, language);

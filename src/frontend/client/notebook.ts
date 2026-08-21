@@ -22,6 +22,15 @@ const figureSchema = z.object({
   nameEn: z.string().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
+  aliases: z.array(
+    z.object({
+      id: z.string().uuid(),
+      figureId: z.string().uuid(),
+      value: z.string(),
+      createdAt: z.iso.datetime(),
+      updatedAt: z.iso.datetime(),
+    }),
+  ),
   variants: z.array(figureVariantSchema).min(1),
 });
 const routineFigureSchema = z.object({
@@ -79,6 +88,13 @@ export async function getDanceNotebook(
 export interface FigureNamesInput {
   readonly nameCs: string | null;
   readonly nameEn: string | null;
+  readonly aliases?: readonly string[];
+}
+export async function addFigureAlias(figureId: string, alias: string): Promise<Figure> {
+  return request(`/api/figures/${figureId}/aliases`, jsonPost({ alias }), figureSchema);
+}
+export async function removeFigureAlias(aliasId: string): Promise<Figure> {
+  return request(`/api/figure-aliases/${aliasId}`, { method: 'DELETE' }, figureSchema);
 }
 
 export async function createFigure(danceId: string, names: FigureNamesInput): Promise<Figure> {
