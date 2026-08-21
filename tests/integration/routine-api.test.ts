@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { GetAppStateQuery } from '../../src/application/app-state/get-app-state.js';
 import {
   CreateFigureCommand,
+  AddFigureAliasCommand,
+  RemoveFigureAliasCommand,
   UpdateFigureNamesCommand,
   UpdateFigureVariantTimingCommand,
 } from '../../src/application/figure/figure-use-cases.js';
@@ -473,6 +475,84 @@ describe('Routine notebook API', () => {
     await reopenedApp.close();
     reopened.close();
   });
+
+  it('supports alias-first creation and controlled alias mutation errors', async () => {
+    const root = await createTemporaryDirectory('figure-alias-api');
+    temporaryDirectories.push(root);
+    const persistence = await initializePersistence({
+      paths: resolveDataPaths(root),
+      migrationsDirectory: resolve('migrations'),
+    });
+    const app = await buildNotebookServer(persistence);
+    const waltz = new SqliteDanceCatalogue(persistence.database)
+      .list()
+      .find((dance) => dance.code === 'WALTZ');
+    if (!waltz) throw new Error('Testovací Waltz nebyl nalezen.');
+    const first = await app.inject({
+      method: 'POST',
+      url: `/api/dances/${waltz.id}/figures`,
+      payload: { nameCs: null, nameEn: null, aliases: ['  Trojkrok  '] },
+    });
+    expect(first.statusCode).toBe(201);
+    expect(first.json()).toMatchObject({
+      nameCs: null,
+      nameEn: null,
+      aliases: [{ value: 'Trojkrok' }],
+    });
+    const figure = first.json();
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/figures/${figure.id}/aliases`,
+          payload: { alias: 'trojkrok' },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/figures/${figure.id}/aliases`,
+          payload: { alias: '   ' },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/figures/${figure.id}/aliases`,
+          payload: { alias: 'x'.repeat(201) },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/figures/${createEntityId()}/aliases`,
+          payload: { alias: 'Jiná' },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (await app.inject({ method: 'DELETE', url: `/api/figure-aliases/${figure.aliases[0].id}` }))
+        .statusCode,
+    ).toBe(400);
+    expect(
+      (await app.inject({ method: 'DELETE', url: `/api/figure-aliases/${createEntityId()}` }))
+        .statusCode,
+    ).toBe(404);
+    const second = await app.inject({
+      method: 'POST',
+      url: `/api/dances/${waltz.id}/figures`,
+      payload: { nameCs: 'Jiná', nameEn: null, aliases: ['Trojkrok'] },
+    });
+    expect(second.statusCode).toBe(201);
+    await app.close();
+    persistence.close();
+  });
 });
 
 async function buildNotebookServer(persistence: PersistenceContext) {
@@ -492,6 +572,8 @@ async function buildNotebookServer(persistence: PersistenceContext) {
       createFigure: new CreateFigureCommand(figures),
       updateFigureNames: new UpdateFigureNamesCommand(figures),
       updateFigureVariantTiming: new UpdateFigureVariantTimingCommand(figures),
+      addFigureAlias: new AddFigureAliasCommand(figures),
+      removeFigureAlias: new RemoveFigureAliasCommand(figures),
       createRoutine: new CreateRoutineCommand(routines),
       createRoutineSection: new CreateRoutineSectionCommand(routines),
       renameRoutineSection: new RenameRoutineSectionCommand(routines),

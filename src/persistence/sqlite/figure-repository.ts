@@ -3,6 +3,7 @@ import type {
   NewFigureRecord,
 } from '../../application/figure/figure-repository.js';
 import {
+  InvalidFigureAliasError,
   InvalidFigureIdentifierError,
   type FigureAlias,
   type FigureVariant,
@@ -207,6 +208,15 @@ export class SqliteFigureRepository implements FigureRepository {
     const add = this.database.transaction(() => {
       const figure = this.findFigure(figureId);
       if (!figure) return null;
+      if (
+        this.aliasesForFigure(figureId).some(
+          (existing) => existing.value.toLocaleLowerCase() === alias.value.toLocaleLowerCase(),
+        )
+      ) {
+        throw new InvalidFigureAliasError(
+          'Stejná přezdívka může být u jedné figury uvedena jen jednou.',
+        );
+      }
       this.database
         .prepare(
           `INSERT INTO figure_aliases (id, figure_id, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,

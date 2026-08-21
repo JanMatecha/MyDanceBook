@@ -133,8 +133,8 @@ export interface NotebookRouteServices {
   readonly createFigure: CreateFigureCommand;
   readonly updateFigureNames: UpdateFigureNamesCommand;
   readonly updateFigureVariantTiming: UpdateFigureVariantTimingCommand;
-  readonly addFigureAlias?: AddFigureAliasCommand;
-  readonly removeFigureAlias?: RemoveFigureAliasCommand;
+  readonly addFigureAlias: AddFigureAliasCommand;
+  readonly removeFigureAlias: RemoveFigureAliasCommand;
   readonly createRoutine: CreateRoutineCommand;
   readonly createRoutineSection: CreateRoutineSectionCommand;
   readonly renameRoutineSection: RenameRoutineSectionCommand;
@@ -194,7 +194,7 @@ export function registerNotebookRoutes(
     const input = aliasSchema.safeParse(request.body);
     if (!figureId || !input.success) return sendInvalidRequest(reply);
     try {
-      const figure = services.addFigureAlias?.execute(figureId, input.data.alias);
+      const figure = services.addFigureAlias.execute(figureId, input.data.alias);
       if (!figure)
         return reply.code(404).send(notFound('figure_not_found', 'Figura nebyla nalezena.'));
       return reply.code(201).send(figureSchema.parse(figure));
@@ -205,7 +205,7 @@ export function registerNotebookRoutes(
   app.delete('/api/figure-aliases/:figureAliasId', async (request, reply) => {
     const aliasId = readId(figureAliasParamsSchema.safeParse(request.params), reply);
     if (!aliasId) return;
-    const result = services.removeFigureAlias?.execute(aliasId);
+    const result = services.removeFigureAlias.execute(aliasId);
     if (result === null)
       return reply.code(404).send(notFound('figure_alias_not_found', 'Přezdívka nebyla nalezena.'));
     if (result === 'last_identifier')

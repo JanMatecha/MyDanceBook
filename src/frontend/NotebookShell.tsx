@@ -191,8 +191,9 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const names = readFigureNames(form, 'figure');
+    const alias = String(form.get('figureAlias') ?? '').trim();
     await runChange(async () => {
-      await createFigure(selectedDanceId, names);
+      await createFigure(selectedDanceId, { ...names, aliases: alias ? [alias] : [] });
       formElement.reset();
     }, 'Figura a její výchozí varianta jsou uložené.');
   }
@@ -371,7 +372,10 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
                 <div className={styles.capturePanels}>
                   <section className={styles.capturePanel}>
                     <h3>Nová figura</h3>
-                    <p>Stačí český nebo anglický název. Výchozí varianta vznikne automaticky.</p>
+                    <p>
+                      Stačí český název, anglický název nebo přezdívka. Výchozí varianta vznikne
+                      automaticky.
+                    </p>
                     {editable && (
                       <form
                         className={styles.inlineForm}
@@ -384,6 +388,10 @@ export function NotebookShell({ state, onStateChange }: NotebookShellProps) {
                         <label>
                           English name
                           <input name="figureNameEn" maxLength={200} />
+                        </label>
+                        <label>
+                          Přezdívka / alternativní název
+                          <input name="figureAlias" maxLength={200} placeholder="Např. Trojkrok" />
                         </label>
                         <button type="submit" disabled={saving}>
                           Vytvořit figuru
@@ -1018,8 +1026,16 @@ function RoutineFigureRow({
                 .map((figure) => (
                   <option key={figure.id} value={figure.id}>
                     {displayFigureName(figure, figureNameLanguage)}
-                    {figure.aliases.length > 0
-                      ? ` — ${figure.aliases.map((alias) => alias.value).join(', ')}`
+                    {figure.aliases.some(
+                      (alias) => alias.value !== displayFigureName(figure, figureNameLanguage),
+                    )
+                      ? ` — ${figure.aliases
+                          .filter(
+                            (alias) =>
+                              alias.value !== displayFigureName(figure, figureNameLanguage),
+                          )
+                          .map((alias) => alias.value)
+                          .join(', ')}`
                       : ''}
                   </option>
                 ))}
